@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ advisor.name }} &mdash; advisees{% endblock %}
+{% block content %}
+<h1>{{ advisor.name }}</h1>
+<p class="note">
+  Advisees. One advisor per student (D-25). Guidance here is informal &mdash;
+  there is no approval step until the third-year review (D-26).
+</p>
+
+<table class="grid">
+  <tr><th>Student</th><th>Standing</th><th>Open requirements</th><th></th></tr>
+  {% for row in summary %}
+  <tr>
+    <td>{{ row.student.name }}</td>
+    <td>{{ row.student.classification }}</td>
+    <td>
+      <span class="count">{{ row.open_count }}</span>
+      <span class="dim">{{ row.open_names|join(' &middot; '|safe) }}</span>
+    </td>
+    <td>
+      <a href="{{ url_for('advisor_student_view', advisor_id=advisor.advisor_id, student_id=row.student.student_id) }}">search for them &rarr;</a>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

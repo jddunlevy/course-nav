@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Course Navigator{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <a href="{{ url_for('home') }}" class="brand">COURSE NAVIGATOR</a>
+  <span class="term">{{ term_label }}</span>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer>
+  New College depth-study prototype &middot; ranks real offered sections only (D-16)
+</footer>
+</body>
+</html>

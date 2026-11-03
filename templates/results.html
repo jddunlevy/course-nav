@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}{{ student.name }} &mdash; Course Navigator{% endblock %}
+{% block content %}
+
+{% if viewer_role == 'advisor' %}
+<p class="crumb">
+  <a href="{{ url_for('advisor_view', advisor_id=advisor_id) }}">&larr; advisees</a>
+  &middot; viewing as advisor
+</p>
+{% endif %}
+
+<h1>{{ student.name }}</h1>
+<p class="note">
+  {{ student.classification }} &middot; catalog {{ student.catalog_year }}
+  &middot; advisor {{ student.advisor_name or '--' }}<br>
+  Working depth study: <em>{{ student.depth_study_label or 'not recorded' }}</em>
+  <span class="dim">(free text only &mdash; ranking never reads it, D-22)</span>
+</p>
+
+<h2>Outstanding requirements</h2>
+<p class="note">From DegreeWorks (D-24). Seeded for the prototype.</p>
+<table class="grid">
+  <tr><th>Requirement</th><th>Hours</th><th>Still open</th></tr>
+  {% for r in outstanding %}
+  <tr class="{{ 'done' if r.satisfied else '' }}">
+    <td>{{ r.name }}</td>
+    <td class="num">
+      {% if r.hours_needed %}{{ r.hours_done|int }}/{{ r.hours_needed }}{% else %}{{ r.hours_done|int }}{% endif %}
+      {%- if r.lab_hours_needed %} <span class="dim">+{{ r.lab_hours_needed }} lab</span>{% endif %}
+    </td>
+    <td>
+      {% if r.satisfied %}<span class="ok">satisfied</span>
+      {% else %}
+        {% for b in r.buckets %}<span class="chip {{ 'must' if b.must_unmet }}">{{ b.name }}{% if b.must_unmet %} (required){% endif %}</span>{% endfor %}
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+
+<details>
+  <summary>Hours totals</summary>
+  <table class="grid">
+    {% for n in numeric %}
+    <tr>
+      <td>{{ n.name }}{% if n.approximate %} <span class="dim">(needs a depth-study flag, not collected in v1)</span>{% endif %}</td>
+      <td class="num">{{ n.hours_done|int }}/{{ n.hours_needed }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</details>
+
+<h2>What are you interested in?</h2>
+<form method="get" class="search">
+  <input type="text" name="q" value="{{ phrase }}" autofocus
+         placeholder="e.g. rockets and propulsion, climate policy, storytelling">
+  <button type="submit">rank sections</button>
+</form>
+<p class="note">
+  Type a word or phrase (D-22). Sections that close one of your open
+  requirements <em>and</em> fit the phrase rank first (D-19).
+</p>
+
+{% if recent %}
+<p class="note dim">recent: {% for r in recent %}<a href="?q={{ r.phrase|urlencode }}">{{ r.phrase }}</a>{% if not loop.last %} &middot; {% endif %}{% endfor %}</p>
+{% endif %}
+
+{% if phrase %}
+<h2>{{ results|length }} ranked courses for &ldquo;{{ phrase }}&rdquo;</h2>
+
+{% if not matched %}
+<p class="warn">
+  Nothing offered this term matches &ldquo;{{ phrase }}&rdquo;. What follows is
+  ranked only on the requirements it closes &mdash; not on your phrase. Try
+  different words, and check with your advisor before concluding nothing exists.
+</p>
+{% endif %}
+<p class="note dim">
+  ranked by
+  {%- if meta.ranker == 'llm' %}
+    TF-IDF retrieval + {{ meta.model }} reranking
+    {%- if meta.dropped %} &middot; <span class="warn">{{ meta.dropped }} invented CRN{{ 's' if meta.dropped > 1 }} rejected</span>
+    {%- else %} &middot; 0 invented CRNs (every result is a real section){% endif %}
+  {%- else %}
+    TF-IDF only
+    {%- if meta.fallback_from %} <span class="warn">(reranker unavailable: {{ meta.error }})</span>{% endif %}
+  {%- endif %}
+</p>
+
+{% if n_uncertain %}
+<p class="note">
+  {{ n_uncertain }} of these rotate their topic each term. They are shown, never
+  hidden (D-21) &mdash; what they count for is known, what they are about is not (D-27).
+</p>
+{% endif %}
+
+{% if not results %}
+<p class="note">
+  Nothing matched. Every section shown is actually offered this term, so an
+  empty result means it is not on the schedule &mdash; not that it does not exist.
+</p>
+{% endif %}
+
+<ol class="results">
+  {% for r in results %}
+  {% set o = r.offering %}
+  <li class="{{ 'uncertain' if r.flag == 'topic_uncertain' }}">
+    <div class="head">
+      <span class="code">{{ o.subject }} {{ o.course_number }}</span>
+      <span class="name">{{ o.title }}</span>
+      <span class="score" title="bucket {{ r.bucket_score }} / relevance {{ r.relevance_score }}">{{ '%.2f'|format(r.score) }}</span>
+    </div>
+    <div class="meta">
+      CRN {{ o.crn }} &middot; sec {{ o.section }}{% if r.other_sections %} <span class="dim">(+{{ r.other_sections }} more section{{ 's' if r.other_sections > 1 }})</span>{% endif %} &middot; {{ o.credits|int }} hr
+      &middot; {{ o|meeting }} &middot; {{ o.schedule_type }}
+      {%- if o.instructors %} &middot; {{ o.instructors }}{% endif %}
+      {%- if o.seats_available is not none %} &middot; {{ o.seats_available }} seats{% endif %}
+    </div>
+    {% if r.buckets_closed %}
+    <div class="buckets">
+      {% for b in r.buckets_closed %}<span class="chip {{ 'must' if b.must_unmet }}">{{ b.name }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    <div class="reason">{{ r.reason }}</div>
+    {% if r.flag == 'topic_uncertain' %}
+    <div class="warn">cannot determine the topic &mdash; ask your advisor</div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% endif %}
+{% endblock %}

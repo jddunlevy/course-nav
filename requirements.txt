@@ -1,0 +1,12 @@
+Flask>=3.0
+
+
+
+# Optional -- only needed for the LLM reranker (rank_llm.py). Without it, and
+# without a credential, the app falls back to TF-IDF automatically.
+# 1.0 is the floor because the reranker uses output_config.format (structured
+# outputs), which the 0.x SDK does not support. Verified working on 2.4.0.
+anthropic>=1.0
+
+# Stage-1 retrieval is pure-Python TF-IDF (rank.py) on purpose -- no numpy, no
+# sklearn. 3,324 courses is small enough that the dependency is not worth it.
