@@ -1,8 +1,11 @@
 """Load one term of Banner sections into the database.
 
-Input is the CSV written by C:\\dev\\ua-classes\\ua_classes.py.
+Input is the CSV written by the Banner scraper (`ua_classes.py`, a separate
+project). A copy of its spring 2027 output ships in `data/`, so a clone of this
+repository can build the database with no external dependency.
 
-    python ingest.py --csv C:\\dev\\ua-classes\\spring2027.csv --term 202710 --reset
+    python ingest.py --reset                                  # uses data/spring2027.csv
+    python ingest.py --csv path/to/other.csv --term 202720 --reset
 
 Note on HTML entities: ua_classes.py now unescapes at the source, but older CSVs
 (spring2027.csv included) still carry `&amp;`, which breaks the attribute split
@@ -14,9 +17,14 @@ once is idempotent.
 import argparse
 import csv
 import html
+import os
 import re
 
 import db
+
+# Ships with the repository, so the default path needs no scraper checkout.
+DEFAULT_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "data", "spring2027.csv")
 
 SPECIAL_TOPICS_ATTR = "Special Topics Course"
 
@@ -152,7 +160,8 @@ def mark_topic_uncertain(conn):
 
 def main():
     ap = argparse.ArgumentParser(description="Load a Banner CSV into navigator.db")
-    ap.add_argument("--csv", default=r"C:\dev\ua-classes\spring2027.csv")
+    ap.add_argument("--csv", default=DEFAULT_CSV,
+                    help="Banner section CSV (default: the copy in data/)")
     ap.add_argument("--term", default="202710")
     ap.add_argument("--reset", action="store_true", help="drop and rebuild the db")
     args = ap.parse_args()

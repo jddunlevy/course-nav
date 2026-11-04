@@ -4,16 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Course Navigator{% endblock %}</title>
+{# Webfonts are progressive enhancement: the stack in style.css carries the
+   design on its own if these never load (NFR4 — no network dependency). #}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<header>
-  <a href="{{ url_for('home') }}" class="brand">COURSE NAVIGATOR</a>
+
+{# 1. AppHeader — UX-DR5, three states #}
+<header class="masthead">
+  <a href="{{ url_for('home') }}" class="brand">Course Navigator</a>
+  <span class="spacer"></span>
+  {% block who %}{% endblock %}
   <span class="term">{{ term_label }}</span>
 </header>
+{% block subheader %}{% endblock %}
+
 <main>
 {% block content %}{% endblock %}
 </main>
+
 <footer>
   New College depth-study prototype &middot; ranks real offered sections only (D-16)
 </footer>

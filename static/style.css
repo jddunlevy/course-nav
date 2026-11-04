@@ -1,24 +1,71 @@
-/* Terminal / early-web. Monospace, rules, no cards, no shadows, no gradients. */
+/* Course Navigator — implements docs/UX Design.md
+ *
+ * Direction: registrar-grade document, not a dashboard. The reference systems
+ * (ux/*.png) are DegreeWorks and Banner, and students already read that
+ * vocabulary — crimson masthead, card blocks per requirement, status marks,
+ * a catalog-year metadata line. Inheriting it is free comprehension (UX spec §3).
+ *
+ * Two things are deliberately NOT inherited:
+ *   - DegreeWorks encodes completion in circle colour alone. Every state here
+ *     also carries a glyph and a word (UX-DR27).
+ *   - Banner's primary button is #638D4F — 3.85:1, fails AA. --ok is darker.
+ *
+ * Colour values marked "sampled" were measured from the screenshots.
+ */
+
+/* ---------------------------------------------------------------- tokens */
 
 :root {
-  --fg: #1a1a1a;
-  --bg: #f4f2ec;
-  --dim: #6b6b6b;
-  --rule: #c9c5b8;
-  --accent: #7a1f1f;
-  --ok: #2f5d2f;
-  --warn: #8a5a00;
+  --crimson:       #872835;   /* sampled: DegreeWorks masthead   8.80:1 */
+  --crimson-deep:  #6B1F10;   /* hover / active                 11.48:1 */
+  --ink:           #2A2F3F;   /* sampled: Banner day boxes      13.32:1 */
+  --ink-dim:       #5C6070;
+  --surface:       #FFFFFF;
+  --surface-sunk:  #F4F4F6;
+  --page:          #FAFAFA;   /* sampled: DegreeWorks ground */
+  --rule:          #E3E3E6;
+  --rule-strong:   #C9CAD0;
+
+  --ok:            #1E7A3C;   /* chosen, not inherited           5.14:1 */
+  --progress:      #1B5E9E;   /* 5.72:1 */
+  --open:          #9A2B2B;   /* 7.26:1 */
+  --unknown:       #6B5E3A;   /* 6.08:1 — the D-27 flag */
+  --ok-bg:         #E8F3EC;
+  --progress-bg:   #E7EFF7;
+  --open-bg:       #F7EAEA;
+  --unknown-bg:    #F4F0E4;
+
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
+  --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
+  --radius: 8px;
+
+  --serif: "Spectral", "Iowan Old Style", Palatino, Georgia, serif;
+  --sans:  "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:  "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
 }
 
+/* Dark variant. DegreeWorks has none; losing the prototype's existing dark
+ * mode would be a regression, so the palette is re-derived rather than dropped. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --fg: #ddd9cf;
-    --bg: #15150f;
-    --dim: #8d8a80;
-    --rule: #3a382f;
-    --accent: #d98b8b;
-    --ok: #8fc08f;
-    --warn: #d2a24c;
+    --crimson:      #E0919C;
+    --crimson-deep: #F0B6BE;
+    --ink:          #E6E7EC;
+    --ink-dim:      #A2A6B4;
+    --surface:      #1C1E23;
+    --surface-sunk: #24262C;
+    --page:         #141519;
+    --rule:         #32343B;
+    --rule-strong:  #474A54;
+
+    --ok:           #6FCB8C;
+    --progress:     #7FB8EA;
+    --open:         #E89292;
+    --unknown:      #D4BD7E;
+    --ok-bg:        #1B2E22;
+    --progress-bg:  #1A2733;
+    --open-bg:      #2E1E1E;
+    --unknown-bg:   #2C2718;
   }
 }
 
@@ -26,100 +73,334 @@
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font: 13px/1.55 "SFMono-Regular", Consolas, "DejaVu Sans Mono", monospace;
+  background: var(--page);
+  color: var(--ink);
+  font: 16px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-header {
-  border-bottom: 1px solid var(--rule);
-  padding: 10px 16px;
+/* ------------------------------------------------- 1. AppHeader (UX-DR5) */
+
+.masthead {
+  background: var(--crimson);
+  color: #fff;
+  padding: var(--sp-3) var(--sp-4);
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
 }
+@media (prefers-color-scheme: dark) {
+  .masthead { background: #4A1620; color: #F7E9EB; }
+  .masthead .brand, .masthead a { color: #F7E9EB; }
+}
+.masthead .brand {
+  font: 600 17px/1.2 var(--serif);
+  letter-spacing: .01em;
+  color: #fff;
+  text-decoration: none;
+}
+.masthead .brand:hover { text-decoration: underline; }
+.masthead .spacer { flex: 1; }
+.masthead .who,
+.masthead .term { font-size: 13px; opacity: .92; }
 
-.brand { color: var(--fg); text-decoration: none; letter-spacing: 0.14em; }
-.term { color: var(--dim); }
+.acting-as {
+  background: var(--unknown-bg);
+  border-bottom: 1px solid var(--rule-strong);
+  color: var(--ink);
+  padding: var(--sp-2) var(--sp-4);
+  font-size: 14px;
+}
+.acting-as b { font-weight: 600; }
 
-main { max-width: 980px; margin: 0 auto; padding: 24px 16px 60px; }
+main { max-width: 1000px; margin: 0 auto; padding: var(--sp-6) var(--sp-4) 72px; }
 
-h1 { font-size: 16px; letter-spacing: 0.08em; margin: 0 0 4px; text-transform: uppercase; }
+h1 { font: 600 28px/1.25 var(--serif); margin: 0 0 var(--sp-2); letter-spacing: -.01em; }
 h2 {
-  font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
-  margin: 30px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--rule);
+  font: 600 20px/1.3 var(--serif);
+  margin: var(--sp-8) 0 var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 2px solid var(--rule-strong);
+}
+a { color: var(--crimson); text-underline-offset: 2px; }
+a:hover { color: var(--crimson-deep); }
+
+:focus-visible {
+  outline: 2px solid var(--crimson);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
-a { color: var(--accent); }
-em { font-style: normal; color: var(--accent); }
+.note { color: var(--ink-dim); font-size: 14px; margin: var(--sp-1) 0 var(--sp-3); }
+.dim  { color: var(--ink-dim); }
+.crumb { font-size: 14px; margin: 0 0 var(--sp-3); }
 
-.note { color: var(--dim); margin: 4px 0 12px; }
-.dim { color: var(--dim); }
-.crumb { margin: 0 0 12px; }
+/* --------------------------------------- 6. SourceNote (UX-DR10, D-29/32) */
 
-/* tables */
-.grid { border-collapse: collapse; width: 100%; margin: 8px 0 16px; }
-.grid th {
-  text-align: left; font-weight: normal; color: var(--dim);
-  border-bottom: 1px solid var(--rule); padding: 4px 10px 4px 0;
-  text-transform: uppercase; letter-spacing: 0.06em;
+.source-note {
+  font: 12px/1.5 var(--mono);
+  color: var(--ink-dim);
+  border-left: 3px solid var(--rule-strong);
+  padding: var(--sp-1) 0 var(--sp-1) var(--sp-2);
+  margin: var(--sp-2) 0 var(--sp-4);
 }
-.grid td { padding: 5px 10px 5px 0; border-bottom: 1px dotted var(--rule); vertical-align: top; }
-.grid tr.done td { color: var(--dim); }
-.num { white-space: nowrap; }
-.role { text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
-.ok { color: var(--ok); }
-.count { color: var(--accent); }
+.source-note .cat { color: var(--ink); font-weight: 500; }
 
-/* bucket chips -- plain bracketed text, not pills */
-.chip { color: var(--dim); white-space: nowrap; }
-.chip::before { content: "["; }
-.chip::after { content: "] "; }
-.chip.must { color: var(--accent); }
+/* ----------------------------------- 2/3. StatusCircle + StatusChip (6,7) */
 
-/* search */
-.search { display: flex; gap: 8px; margin: 10px 0; }
-.search input {
-  flex: 1; font: inherit; padding: 7px 9px;
-  background: transparent; color: var(--fg);
+/* Never colour alone: each state carries a glyph and a word. */
+.mark {
+  display: inline-block; width: 1.1em; text-align: center;
+  font-size: 15px; line-height: 1;
+}
+.mark.is-complete   { color: var(--ok); }
+.mark.is-progress   { color: var(--progress); }
+.mark.is-open       { color: var(--open); }
+.mark.is-unknown    { color: var(--unknown); }
+
+.chip-status {
+  display: inline-block;
+  font: 600 11px/1 var(--sans);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  vertical-align: 2px;
+}
+.chip-status.is-complete { color: var(--ok);       background: var(--ok-bg); }
+.chip-status.is-progress { color: var(--progress); background: var(--progress-bg); }
+.chip-status.is-open     { color: var(--open);     background: var(--open-bg); }
+
+/* ------------------------------------------- 4. RequirementCard (UX-DR8) */
+
+.req-list { display: grid; gap: var(--sp-3); grid-template-columns: 1fr 1fr; }
+.req {
+  background: var(--surface);
   border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
 }
-.search input:focus { outline: none; border-color: var(--accent); }
-.search button {
-  font: inherit; padding: 7px 14px; cursor: pointer;
-  background: transparent; color: var(--fg); border: 1px solid var(--fg);
-}
-.search button:hover { background: var(--fg); color: var(--bg); }
+.req.is-satisfied { background: var(--surface-sunk); }
+.req-head { display: flex; align-items: baseline; gap: var(--sp-2); }
+.req-name { font-weight: 600; flex: 1; }
+.req-hours { font: 500 14px/1 var(--mono); white-space: nowrap; color: var(--ink-dim); }
+.req-state { font-size: 13px; color: var(--ink-dim); margin-top: var(--sp-1); }
 
-/* results */
-.results { list-style: none; counter-reset: r; margin: 12px 0; padding: 0; }
-.results li {
+/* Must-include constraints are a separate line, never folded into hours. */
+.constraint {
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 1px dashed var(--rule-strong);
+  font-size: 13px;
+}
+.constraint .lead {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--ink-dim);
+  margin-top: var(--sp-2);
+}
+.constraint .lead:first-child { margin-top: 0; }
+
+/* ------------------------------------------ 5. RequirementBadge (UX-DR9) */
+
+.badge {
+  display: inline-block;
+  font: 500 12px/1 var(--sans);
+  padding: 5px 8px;
+  margin: 0 var(--sp-1) var(--sp-1) 0;
+  border-radius: 3px;
+  border: 1px solid var(--rule-strong);
+  background: var(--surface-sunk);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.badge.must {
+  border-color: var(--open);
+  color: var(--open);
+  background: var(--open-bg);
+  font-weight: 600;
+}
+.badge.must::before { content: "\25C6\00a0"; }   /* ◆ — not colour alone */
+
+/* ------------------------------------------------ 7. PhraseInput (UX-DR11) */
+
+.search { display: flex; gap: var(--sp-2); margin: var(--sp-3) 0; }
+.search input {
+  flex: 1;
+  font: 16px/1.4 var(--sans);
+  padding: 11px var(--sp-3);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+}
+.search input::placeholder { color: var(--ink-dim); }
+.search button {
+  font: 600 15px/1.4 var(--sans);
+  padding: 11px var(--sp-6);
+  cursor: pointer;
+  background: var(--crimson);
+  color: #fff;
+  border: 1px solid var(--crimson);
+  border-radius: var(--radius);
+}
+.search button:hover { background: var(--crimson-deep); border-color: var(--crimson-deep); }
+@media (prefers-color-scheme: dark) {
+  .search button { background: #4A1620; border-color: #4A1620; color: #F7E9EB; }
+}
+
+/* ------------------------------------- 12. RankProvenance (UX-DR16, FR18) */
+
+.provenance {
+  font: 12px/1.6 var(--mono);
+  color: var(--ink-dim);
+  background: var(--surface-sunk);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--sp-2) var(--sp-3);
+  margin: var(--sp-3) 0;
+}
+.provenance .verified { color: var(--ok); font-weight: 500; }
+.provenance .rejected { color: var(--open); font-weight: 500; }
+
+/* ------------------------------------- 8. CourseResultCard (UX-DR12, 25) */
+
+.results { list-style: none; counter-reset: r; margin: var(--sp-4) 0; padding: 0; }
+.results > li {
   counter-increment: r;
-  border-top: 1px solid var(--rule);
-  padding: 10px 0 10px 34px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4) var(--sp-3) 56px;
+  margin-bottom: var(--sp-2);
   position: relative;
 }
-.results li::before {
+.results > li::before {
   content: counter(r);
-  position: absolute; left: 0; top: 10px;
-  color: var(--dim);
+  position: absolute; left: 0; top: 0; bottom: 0; width: 40px;
+  display: flex; align-items: center; justify-content: center;
+  font: 500 13px var(--mono);
+  color: var(--ink-dim);
+  background: var(--surface-sunk);
+  border-right: 1px solid var(--rule);
+  border-radius: var(--radius) 0 0 var(--radius);
 }
-.results li.uncertain { border-left: 2px solid var(--warn); padding-left: 32px; }
+.results > li.uncertain { border-left: 4px solid var(--unknown); }
 
-.head { display: flex; gap: 10px; align-items: baseline; }
-.code { color: var(--accent); white-space: nowrap; }
-.name { flex: 1; }
-.score { color: var(--dim); }
-.meta { color: var(--dim); margin-top: 2px; }
-.buckets { margin-top: 3px; }
-.reason { margin-top: 3px; }
-.warn { margin-top: 3px; color: var(--warn); }
+.r-head { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.r-code { font: 600 13px/1.4 var(--mono); color: var(--crimson); white-space: nowrap; }
+/* No truncation: these are the fields the product exists to surface (UX-DR25). */
+.r-title { font-weight: 600; font-size: 17px; flex: 1; min-width: 12ch; }
+.r-score { font: 12px var(--mono); color: var(--ink-dim); }
+.r-meta  { font-size: 13px; color: var(--ink-dim); margin-top: var(--sp-1);
+           display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.r-reason { font-size: 14px; margin-top: var(--sp-2); }
+.r-badges { margin-top: var(--sp-2); }
 
-details { margin: 10px 0; }
-summary { cursor: pointer; color: var(--dim); }
+/* --------------------------------------- 9. MeetingPattern (UX-DR13) */
+
+.days { display: inline-flex; gap: 2px; }
+.days i {
+  font: 500 10px/14px var(--mono);
+  font-style: normal;
+  width: 14px; height: 14px;
+  text-align: center;
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  color: var(--ink-dim);
+}
+.days i.on { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.tba { font-style: italic; }
+
+/* ------------------------------------------- 10/11. SeatCounter + flag */
+
+.seats.full { color: var(--open); font-weight: 600; }
+.uncertain-flag {
+  margin-top: var(--sp-2);
+  font-size: 13px;
+  color: var(--unknown);
+  background: var(--unknown-bg);
+  border-radius: 3px;
+  padding: var(--sp-1) var(--sp-2);
+  display: inline-block;
+}
+.uncertain-flag::before { content: "\25B3\00a0"; }   /* △ */
+
+.callout {
+  border-left: 4px solid var(--unknown);
+  background: var(--unknown-bg);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: 0 3px 3px 0;
+  font-size: 14px;
+  margin: var(--sp-3) 0;
+}
+.callout.gap { border-left-color: var(--open); background: var(--open-bg); }
+
+/* ----------------------------------------- 14. EmptyState (UX-DR18, 34) */
+
+.empty {
+  background: var(--surface);
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--radius);
+  padding: var(--sp-6);
+  text-align: center;
+  color: var(--ink-dim);
+  font-size: 14px;
+}
+.empty b { display: block; color: var(--ink); font-size: 16px; margin-bottom: var(--sp-1); }
+
+/* --------------------------------------------- 15. AdviseeRow / tables */
+
+.grid { border-collapse: collapse; width: 100%; margin: var(--sp-2) 0 var(--sp-4);
+        background: var(--surface); border: 1px solid var(--rule);
+        border-radius: var(--radius); overflow: hidden; }
+.grid th {
+  text-align: left; font: 600 11px/1.4 var(--sans);
+  letter-spacing: .07em; text-transform: uppercase; color: var(--ink-dim);
+  background: var(--surface-sunk);
+  border-bottom: 1px solid var(--rule-strong);
+  padding: var(--sp-2) var(--sp-3);
+}
+.grid td { padding: var(--sp-3); border-bottom: 1px solid var(--rule); vertical-align: top; }
+.grid tr:last-child td { border-bottom: 0; }
+.num { font: 500 14px var(--mono); white-space: nowrap; }
+.role { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-dim); }
+.count { font: 600 15px var(--mono); color: var(--open); }
+
+details { margin: var(--sp-3) 0; }
+summary { cursor: pointer; font-size: 14px; color: var(--crimson); }
 
 footer {
   border-top: 1px solid var(--rule);
-  padding: 10px 16px; color: var(--dim);
-  max-width: 980px; margin: 0 auto;
+  max-width: 1000px; margin: 0 auto;
+  padding: var(--sp-4);
+  color: var(--ink-dim); font-size: 13px;
 }
+
+/* Screen-reader-only label (UX-DR30) */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ------------------------------------------- responsive (UX-DR32, 33) */
+
+@media (max-width: 640px) {
+  main { padding: var(--sp-4) var(--sp-3) 56px; }
+  h1 { font-size: 23px; }
+  .req-list { grid-template-columns: 1fr; }
+  .search { flex-direction: column; }
+  .results > li { padding-left: var(--sp-4); padding-top: var(--sp-6); }
+  .results > li::before {
+    width: auto; bottom: auto; right: 0; height: 22px;
+    justify-content: flex-start; padding-left: var(--sp-4);
+    border-right: 0; border-bottom: 1px solid var(--rule);
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+}
+/* Wide content scrolls inside its own container, never the page body. */
+.scroll-x { overflow-x: auto; }

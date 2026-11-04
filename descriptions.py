@@ -10,12 +10,18 @@ returns the same blurb -- so we fetch once per subject+number using any one of
 its CRNs. 3,324 unique courses in spring 2027, roughly 25 minutes at the
 0.3s pause. Resumable: already-cached courses are skipped.
 
-    python descriptions.py --term 202710
+    python descriptions.py --from-csv                   # load the cache that ships in data/
+    python descriptions.py --term 202710                # re-crawl Banner (~25 min)
     python descriptions.py --term 202710 --limit 50     # sample first
+
+Crawling needs the Banner scraper (`ua_classes.py`, a separate project) on the
+path; loading from CSV does not, which is why the cache ships in `data/`.
 """
 
 import argparse
+import csv
 import html
+import os
 import re
 import sys
 import time
@@ -24,8 +30,9 @@ import urllib.request
 
 import db
 
-sys.path.insert(0, r"C:\dev\ua-classes")
-import ua_classes as ua  # noqa: E402
+DEFAULT_DESC_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "data", "course-descriptions.csv")
+SCRAPER_PATH = r"C:\dev\ua-classes"
 
 TAG_RE = re.compile(r"(?s)<[^>]+>")
 SCRIPT_RE = re.compile(r"(?is)<(script|style).*?</\1>")
@@ -63,6 +70,12 @@ def run(conn, term, limit=None, pause=0.3):
         rows = rows[:limit]
 
     print("{} courses need a description".format(len(rows)), file=sys.stderr)
+
+    # Imported here, not at module scope: loading the shipped CSV must work on a
+    # machine that has no scraper checkout.
+    sys.path.insert(0, SCRAPER_PATH)
+    import ua_classes as ua
+
     opener = ua.make_opener()
     ua.start_session(opener, term)
 
@@ -95,15 +108,41 @@ def run(conn, term, limit=None, pause=0.3):
     return {"ok": ok, "empty": empty, "failed": failed}
 
 
+def load_csv(conn, path):
+    """Load a previously dumped description cache. No network, no scraper."""
+    loaded = missing = 0
+    with open(path, encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f):
+            cur = conn.execute("""
+                UPDATE course SET description = ?, description_fetched_at = ?
+                WHERE subject = ? AND course_number = ?
+            """, (row["description"], "from-csv",
+                  row["subject"], row["course_number"]))
+            if cur.rowcount:
+                loaded += 1
+            else:
+                missing += 1
+    conn.commit()
+    print("loaded {} descriptions, {} not in this term's catalog".format(loaded, missing),
+          file=sys.stderr)
+    return loaded
+
+
 def main():
     ap = argparse.ArgumentParser(description="Cache Banner course descriptions.")
     ap.add_argument("--term", default="202710")
     ap.add_argument("--limit", type=int, help="only fetch the first N (for a sample run)")
     ap.add_argument("--pause", type=float, default=0.3)
+    ap.add_argument("--from-csv", nargs="?", const=DEFAULT_DESC_CSV, metavar="PATH",
+                    help="load a dumped cache instead of crawling Banner "
+                         "(default: the copy in data/)")
     args = ap.parse_args()
 
     conn = db.connect()
-    run(conn, args.term, args.limit, args.pause)
+    if args.from_csv:
+        load_csv(conn, args.from_csv)
+    else:
+        run(conn, args.term, args.limit, args.pause)
 
     # descriptions change the D-27 verdict, so recompute it
     import ingest

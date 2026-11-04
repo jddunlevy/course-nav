@@ -15,13 +15,15 @@ is maintained.
 | The requirements, with evidence IDs | [`docs/PRD.md`](docs/PRD.md) |
 | Stack, schema, the ranker, **what is not yet built** | [`docs/Architecture.md`](docs/Architecture.md) §7 |
 | Interface spec and the 15 components | [`docs/UX Design.md`](docs/UX%20Design.md) |
-| The backlog — 8 epics, 32 stories | [`docs/epics.md`](docs/epics.md) |
+| The backlog the team votes on | `sprint/sprint system - backlog tracker (sheets).tsv` (vault) |
 | What the degree rules actually are | [`reference/new-college-requirements.md`](reference/new-college-requirements.md) |
 | Why those rules needed consolidating | [`reference/nc-website-audit.md`](reference/nc-website-audit.md) |
 
-**Source of truth** is the elicitation running log in the vault at
-`C:\dev\jaxon-brain\MIS 430\final-project\elicitation\findings - running log.md`, §6,
-decisions D-01 → D-32. It overrides everything in this repository wherever they disagree.
+**Source of truth** is the elicitation running log, §6, decisions D-01 → D-32. It overrides
+everything in this repository wherever they disagree. It is **not in this repository** — it lives
+in the project vault on Jaxon's machine, at
+`MIS 430\final-project\elicitation\findings - running log.md`. Ask him for a copy; every D-nn,
+F-nn, A-nn and Q-nn cited in these documents resolves there.
 
 ## State
 

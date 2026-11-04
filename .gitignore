@@ -5,3 +5,10 @@ __pycache__/
 .venv/
 venv/
 .env
+
+# Real student records — never commit (FERPA; README "Open" flags this path)
+reference/Ellucian*.pdf
+reference/Unofficial Transcript.pdf
+reference/*transcript*.pdf
+reference/*Transcript*.pdf
+private/

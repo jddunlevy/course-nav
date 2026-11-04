@@ -17,8 +17,11 @@ ADVISORS = [
 
 # (name, email, classification, catalog_year, depth_study_label)
 STUDENTS = [
-    ("Avery Nkemdirim", "ankemdirim@crimson.ua.edu", "Junior", "2024",
-     "Aerospace engineering & entrepreneurship"),
+    # Real coursework from a DegreeWorks audit + unofficial transcript, under a
+    # pseudonym. Grades are omitted: nothing reads completed_course.grade, so the
+    # record carries no more than the product needs. Source PDFs are gitignored.
+    ("Jordan Reyes", "jreyes@crimson.ua.edu", "Senior", "2024-2025",
+     "Cognitive science"),
     ("Rosa Delgado", "rdelgado@crimson.ua.edu", "Sophomore", "2025",
      "Public health and storytelling"),
     ("Tobias Lindqvist", "tlindqvist@crimson.ua.edu", "Senior", "2023",
@@ -28,15 +31,62 @@ STUDENTS = [
 # student index -> completed courses: (subject, number, title, term, grade, credits, [bucket codes])
 COMPLETED = {
     0: [
-        ("EN", "101", "English Composition I", "202340", "A", 3, ["COMP"]),
-        ("EN", "102", "English Composition II", "202410", "A", 3, ["COMP"]),
-        ("NEW", "101", "New College Compass", "202340", "A", 1, ["COMPASS"]),
-        ("MATH", "125", "Calculus I", "202340", "B", 4, ["MATH"]),
-        ("PH", "105", "General Physics I", "202410", "B", 4, ["NATSCI"]),
-        ("HY", "101", "Western Civilisation I", "202410", "A", 3, ["HIST"]),
-        ("NEW", "200", "Idea Lab", "202440", "A", 3, []),
-        # outstanding: CORE_HUM (all 9), CORE_NATSCI (4 more + lab),
-        #              CORE_SOC (6 more), UNIV_W, UNIV_USGC, UNIV_WLANG
+        ("CS", "104", "Computer Science Principles", "AP", None, 3, []),
+        ("EN", "101", "English Composition", "AP", None, 3, ['COMP']),
+        ("EN", "102", "English Composition", "AP", None, 3, ['COMP']),
+        ("GEO", "105", "Sustainable Earth", "AP", None, 4, ['NATSCI']),
+        ("GY", "110", "Prin Human Geography", "AP", None, 3, ['SBS']),
+        ("MATH", "125", "Calculus I", "AP", None, 4, ['MATH']),
+        ("MATH", "126", "Calculus II", "AP", None, 4, ['MATH']),
+        ("PH", "101", "General Physics I", "AP", None, 4, ['NATSCI']),
+        ("PY", "101", "Intro to Psychology", "AP", None, 3, ['SBS']),
+        ("ST", "260", "Statistical Data Analysis", "AP", None, 3, []),
+        ("FR", "102", "French Language & Cultures II", "202530", None, 3, ['HUM', 'WLANG']),
+        ("ECE", "121", "Intro to ECE", "202340", None, 1, []),
+        ("ENGR", "123", "Engineering Foundations Honors", "202340", None, 3, []),
+        ("EPIC", "101", "EPIC Freshman Seminar I", "202340", None, 1, []),
+        ("FR", "201", "Intermediate French", "202340", None, 3, ['HUM', 'WLANG']),
+        ("PH", "105", "General Physics W/Calc I", "202340", None, 4, ['NATSCI']),
+        ("EC", "110", "Principles of Microeconomics", "202410", None, 3, ['SBS']),
+        ("FR", "202", "Intermediate French", "202410", None, 3, ['HUM', 'WLANG']),
+        ("GBA", "146", "Professional Development I", "202410", None, 1, ['COMPASS']),
+        ("LGS", "201", "Honors Legal Env of Business", "202410", None, 3, []),
+        ("MIS", "200", "Fundamentals of MIS", "202410", None, 3, []),
+        ("AC", "210", "Intro To Accounting", "202440", None, 4, []),
+        ("EC", "111", "Principles of Macroeconomics", "202440", None, 3, ['SBS']),
+        ("FR", "323", "Persuasive & Analytical Writing", "202440", None, 3, ['W']),
+        ("GBA", "246", "Professional Development II", "202440", None, 1, []),
+        ("MGT", "300", "Org Theory & Behavior", "202440", None, 3, []),
+        ("FR", "325", "Cultures and Conversations", "202510", None, 3, []),
+        ("GBA", "300", "Business Communications", "202510", None, 3, ['W']),
+        ("MIS", "221", "Business Programming I", "202510", None, 3, []),
+        ("PSC", "361", "Fiscal Policy & Budget", "202510", None, 3, []),
+        # HIST confirmed by the student's DegreeWorks audit, not by Banner:
+        # the 2027 catalog tags SW 200 as Social & Behavioral only.
+        ("SW", "200", "History Social Welfare US", "202510", None, 3, ['HIST', 'SBS']),
+        ("UH", "205", "Found. of Community Engagement", "202510", None, 3, ['HUM']),
+        ("ARH", "253", "Survey Of Art II", "202540", None, 3, []),
+        ("EN", "253", "Literature and Genre", "202540", None, 3, ['HUM', 'LIT']),
+        ("FR", "426", "History of the French Language", "202540", None, 3, []),
+        ("GBA", "346", "Professional Development III", "202540", None, 1, []),
+        ("MIS", "321", "Business Programming II", "202540", None, 3, []),
+        ("MIS", "330", "Database Administration", "202540", None, 3, []),
+        ("MKT", "300", "Marketing", "202540", None, 3, []),
+        ("CS", "223", "Intro to Python Programming", "202610", None, 3, []),
+        ("FR", "250", "Love & Transgression in FR Lit", "202610", None, 3, ['LIT']),
+        ("MIS", "405", "Enterprise Network & Security", "202610", None, 3, []),
+        ("MLC", "261", "Intro to Romance Linguistics", "202610", None, 3, []),
+        ("NEW", "200", "Idea Lab", "202610", None, 3, []),
+        ("OM", "300", "Intro Operations Management", "202610", None, 3, []),
+        ("PSC", "370", "American Public Policy", "202610", None, 3, []),
+        ("FI", "302", "Business Finance", "202630", None, 3, []),
+        ("MIS", "497", "Special Topics", "202630", None, 3, []),
+        ("EN", "321", "Essential Grammar", "202640", None, 3, []),
+        ("FR", "421", "Pronunciation & Phonetics", "202640", None, 3, []),
+        ("MIS", "430", "Systems Analysis & Design I", "202640", None, 3, []),
+        ("MLC", "262", "Language and the Brain", "202640", None, 3, []),
+        ("NEW", "213", "Honors Creativity", "202640", None, 4, ['ARTS', 'HUM']),
+        ("NEW", "407", "Landscapes of the South", "202640", None, 3, []),
     ],
     1: [
         ("EN", "101", "English Composition I", "202440", "A", 3, ["COMP"]),
@@ -107,6 +157,12 @@ def run(conn):
 
 if __name__ == "__main__":
     conn = db.connect()
+    # Child rows first. search_request.actor_user_id references app_user, so
+    # re-seeding after anyone has run a search fails on a FK constraint
+    # without these three deletes.
+    conn.execute("DELETE FROM recommendation_bucket")
+    conn.execute("DELETE FROM recommendation")
+    conn.execute("DELETE FROM search_request")
     conn.execute("DELETE FROM completed_course_bucket")
     conn.execute("DELETE FROM completed_course")
     conn.execute("DELETE FROM app_user")

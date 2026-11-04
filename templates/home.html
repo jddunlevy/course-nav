@@ -6,21 +6,29 @@
   gets no role (F-39). Identity only &mdash; not a security model.
 </p>
 
+{% if users %}
 <table class="grid">
   <tr><th>Name</th><th>Role</th><th>Standing</th><th></th></tr>
   {% for u in users %}
   <tr>
-    <td>{{ u.display_name }}</td>
+    <td><strong>{{ u.display_name }}</strong></td>
     <td class="role">{{ u.role }}</td>
-    <td>{{ u.classification or '--' }}</td>
+    <td>{{ u.classification or '&mdash;'|safe }}</td>
     <td>
       {% if u.role == 'student' %}
-        <a href="{{ url_for('student_view', student_id=u.student_id) }}">open &rarr;</a>
+        <a href="{{ url_for('student_view', student_id=u.student_id) }}">Open &rarr;</a>
       {% else %}
-        <a href="{{ url_for('advisor_view', advisor_id=u.advisor_id) }}">open &rarr;</a>
+        <a href="{{ url_for('advisor_view', advisor_id=u.advisor_id) }}">Open &rarr;</a>
       {% endif %}
     </td>
   </tr>
   {% endfor %}
 </table>
+{% else %}
+{# 14. EmptyState — UX-DR18 #}
+<div class="empty">
+  <b>No users seeded</b>
+  Run <code>python seed.py</code> to create the demo advisor and three students.
+</div>
+{% endif %}
 {% endblock %}

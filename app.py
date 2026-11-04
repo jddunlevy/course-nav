@@ -147,5 +147,8 @@ if __name__ == "__main__":
             "navigator.db not found. Run:\n"
             "  python ingest.py --reset\n"
             "  python seed.py\n"
-            "  python descriptions.py --term 202710")
-    app.run(debug=True, port=5000)
+            "  python descriptions.py --from-csv")
+    # use_reloader=False: on Python 3.14 the watchdog reloader picks up changes
+    # inside the standard library and restarts in a loop, so the server never
+    # settles. Debug error pages are kept; only the file watcher is off.
+    app.run(debug=True, port=5000, use_reloader=False)

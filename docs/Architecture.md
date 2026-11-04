@@ -66,7 +66,8 @@ SDK, and the application imports it defensively.
 ## 3. Data model
 
 `schema.sql` plus `reference_data.sql`. Every table names the decision it implements. 14 tables
-in four groups.
+in five groups. The ER diagram, with every column and foreign key, is
+[`data-model.md`](data-model.md).
 
 | Group | Tables |
 |---|---|
@@ -124,7 +125,7 @@ exactly the failure the product exists to prevent (**F-12**, **NFR8**).
 
 | Source | Mechanism | Volume |
 |---|---|---|
-| Banner 9 section data | `C:\dev\ua-classes\ua_classes.py`, JSON, no login | 9,621 sections / 3,324 courses, term 202710 |
+| Banner 9 section data | `ua_classes.py` (separate project), JSON, no login. Its output ships as `data/spring2027.csv` | 9,621 sections / 3,324 courses, term 202710 |
 | Course descriptions | `POST /searchResults/getCourseDescription` | 3,172 cached; ~5% return HTTP 500, meaning no record exists |
 | Requirement rules | Hand-encoded in `reference_data.sql` | 13 requirements, 12 buckets |
 | Seminar themes (**not yet built**) | `reference/nc-seminar-themes-202710.csv`, extracted from the term course booklet | 15 seminars, 12 tagged |
@@ -133,11 +134,15 @@ exactly the failure the product exists to prevent (**F-12**, **NFR8**).
 Setup is a four-step pipeline, each step idempotent:
 
 ```
-python ingest.py --reset      # build navigator.db, load the term
-python seed.py                # demo advisor + 3 students
-python descriptions.py        # cache descriptions, ~25 min, resumable
-python app.py                 # http://127.0.0.1:5000
+python ingest.py --reset          # build navigator.db from data/spring2027.csv
+python descriptions.py --from-csv # load the cache that ships in data/
+python seed.py                    # demo advisor + 3 students
+python app.py                     # http://127.0.0.1:5000
 ```
+
+Both inputs ship in `data/`, so the pipeline needs no network and no scraper checkout. Pulling a
+*new* term does: `ingest.py --csv <new>.csv --term <term> --reset`, then
+`descriptions.py --term <term>` to crawl (~25 min, resumable).
 
 `descriptions.py` only fetches courses whose description is still empty, so re-running it
 retries failures. Descriptions are **course-level, not section-level** — every `AAST 395`
@@ -223,7 +228,7 @@ than a hope about the prompt.
 
 **Only the phrase, the outstanding bucket names, and public catalog text leave the machine.**
 No name, no ID, no completed coursework, no grades (**NFR12**). `python test_rank_llm.py` —
-14 assertions, no API key required — exercises validation, omission-append, and the fallback.
+15 assertions, no API key required — exercises validation, omission-append, and the fallback.
 
 **Known gap.** The LLM path has never run against a live credential. A fake key proved the
 loader, the network path and the fallback, but a 401 is rejected before the body is parsed, so
@@ -286,7 +291,7 @@ than relying on the shell.
 **Error handling.** One rule: the ranker may never take the page down. Every reranker exception
 is caught, logged, and answered with the deterministic ordering.
 
-**Testing.** `test_rank_llm.py`, 14 assertions, no credential needed. Covers the validation
+**Testing.** `test_rank_llm.py`, 15 assertions, no credential needed. Covers the validation
 boundary, omission-append, and fallback. There is no test suite for `db.outstanding_buckets`,
 which is the highest-risk untested code given NFR8.
 

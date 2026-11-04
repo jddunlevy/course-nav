@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ advisor.name }} &mdash; advisees{% endblock %}
+{% block who %}<span class="who">{{ advisor.name }} &middot; advisor</span>{% endblock %}
 {% block content %}
 <h1>{{ advisor.name }}</h1>
 <p class="note">
@@ -7,20 +8,34 @@
   there is no approval step until the third-year review (D-26).
 </p>
 
+{% if summary %}
+{# 15. AdviseeRow — UX-DR19 #}
 <table class="grid">
-  <tr><th>Student</th><th>Standing</th><th>Open requirements</th><th></th></tr>
+  <tr><th>Student</th><th>Standing</th><th>Open</th><th>Requirements still open</th><th></th></tr>
   {% for row in summary %}
   <tr>
-    <td>{{ row.student.name }}</td>
+    <td><strong>{{ row.student.name }}</strong></td>
     <td>{{ row.student.classification }}</td>
     <td>
+      <span class="mark {{ 'is-complete' if row.open_count == 0 else 'is-open' }}"
+            aria-hidden="true">{{ '●' if row.open_count == 0 else '○' }}</span>
       <span class="count">{{ row.open_count }}</span>
-      <span class="dim">{{ row.open_names|join(' &middot; '|safe) }}</span>
+    </td>
+    <td class="dim">
+      {% if row.open_names %}{{ row.open_names|join(' &middot; '|safe) }}
+      {% else %}<span class="mark is-complete" aria-hidden="true">&#9679;</span> all requirements satisfied{% endif %}
     </td>
     <td>
-      <a href="{{ url_for('advisor_student_view', advisor_id=advisor.advisor_id, student_id=row.student.student_id) }}">search for them &rarr;</a>
+      <a href="{{ url_for('advisor_student_view', advisor_id=advisor.advisor_id, student_id=row.student.student_id) }}">Search for them &rarr;</a>
     </td>
   </tr>
   {% endfor %}
 </table>
+{% else %}
+{# 14. EmptyState — UX-DR18, "no advisees" variant #}
+<div class="empty">
+  <b>No advisees assigned</b>
+  Students are linked to an advisor by <code>student.advisor_id</code> (D-25).
+</div>
+{% endif %}
 {% endblock %}
