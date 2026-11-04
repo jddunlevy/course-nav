@@ -3,7 +3,7 @@
 Verified live on 2026-11-02: POST /searchResults/getCourseDescription with
 `term` and `courseReferenceNumber`, after start_session(), returns an HTML
 fragment with the catalog description. 5/5 test CRNs returned HTTP 200 with
-real prose (162-628 chars). This closes the handoff's open item.
+real prose (162-628 chars).
 
 Descriptions are COURSE level, not section level -- every AAST 395 section
 returns the same blurb -- so we fetch once per subject+number using any one of

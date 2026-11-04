@@ -39,7 +39,7 @@ CREATE TABLE student (
 
 -- D-25: roles are student and advisor only. The student records person (F-39)
 -- gets no role. D-20/F-40: both students and advisors need a login.
--- No auth provider in v1 (handoff constraint) -- this is identity, not security.
+-- No auth provider in v1 (D-26 scope) -- this is identity, not security.
 CREATE TABLE app_user (
     user_id     INTEGER PRIMARY KEY,
     username    TEXT    NOT NULL UNIQUE,

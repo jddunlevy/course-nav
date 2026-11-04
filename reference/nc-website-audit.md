@@ -299,6 +299,6 @@ Numbering continues from F-41, D-28, Q-26.
 | Banner 9 Browse Classes, Spring 2027 | 2026-11-02 | `ux/Screenshot 2026-11-02 202346.png` |
 
 A note on the referral: the Third Year Review page names **Mrs. Jenna Lewis, 201 Lloyd** as
-the person who receives the completed form. That is the referral from I-03 that the handoff
-lists as uncontacted, and it corroborates **F-39** — the student records person — from a second,
+the person who receives the completed form. That is the referral from I-03, still uncontacted,
+and it corroborates **F-39** — the student records person — from a second,
 documentary source.

@@ -1,7 +1,7 @@
 """Course Navigator -- Flask prototype.
 
 Two roles, student and advisor (D-20, D-25). There is no auth provider and no
-password: the handoff forbids over-building, and the role split is what matters
+password: v1 deliberately does not over-build, and the role split is what matters
 for the demo, not the security model.
 
     python app.py      ->  http://127.0.0.1:5000

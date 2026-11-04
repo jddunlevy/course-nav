@@ -16,13 +16,27 @@ These documents are downstream of the elicitation record, not sources in their o
 they disagree with the running log's decisions, the log wins — see
 [the README](../README.md#source-of-truth).
 
-Three decisions these documents assume are **proposed and not yet accepted by the team**: D-29
-and D-32 (rule provenance on screen) and D-31 (seminar themes in v1). If D-31 is rejected, Epic 6
-and three stories go with it.
+Of the three decisions the README flags as proposed: D-29 and D-32 put rule provenance on screen,
+and D-31 puts seminar themes in v1.
 
-## For the requirement rules themselves
+## The requirement rules themselves
 
-Not here — [`../reference/new-college-requirements.md`](../reference/new-college-requirements.md).
-Every degree requirement stated once with its source and revision date, conflicts flagged rather
-than averaged. [`../reference/nc-website-audit.md`](../reference/nc-website-audit.md) is why that
-file has to exist: the official sources contradict each other.
+Not here — they live in [`../reference/`](../reference/), alongside the source documents they
+derive from.
+
+| File | What |
+|---|---|
+| [`new-college-requirements.md`](../reference/new-college-requirements.md) | **Start here for the rules.** Every degree requirement stated once, with its source and revision date. Conflicts flagged, not averaged |
+| [`nc-website-audit.md`](../reference/nc-website-audit.md) | Why that file has to exist: the official sources contradict each other. Evidence behind D-29 → D-32 and Q-27 → Q-31 |
+| `nc-seminar-themes-202710.csv` | CC/ESC/SPSC per NEW course — 15 seminars, 12 tagged, 3 unknown. Banner has no theme attribute |
+| `*.pdf` | Both live Pre-Advising Checklists (Nov 2025 and the superseded Sept 2019), the Spring 2027 course booklet, the Third Year Review form |
+
+## Where the data came from
+
+| Source | What |
+|---|---|
+| `../data/spring2027.csv` | 9,621 sections, 3,324 courses, term 202710. **In this repo** |
+| `../data/course-descriptions.csv` | 3,172 cached course descriptions. **In this repo** |
+| `ua_classes.py` | Banner 9 JSON scraper, no login. A separate project, not in this repo — only needed to pull a *new* term |
+| Banner `getCourseDescription` | Where the descriptions came from; ~5% of courses have no record |
+| `../reference/nc-seminar-themes-202710.csv` | Seminar themes, extracted from the term booklet |
