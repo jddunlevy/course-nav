@@ -1,11 +1,12 @@
 ---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation']
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'revalidated-against-code-2026-11-11', 'sprint-1-stories-added-2026-11-11']
 inputDocuments:
   - 'docs/PRD.md'
   - 'docs/Architecture.md'
   - 'docs/UX Design.md'
   - 'sprint/sprint system - run sheet and templates.md (class output format for deliverable #5)'
   - 'elicitation/findings - running log.md (source of truth, D-01 to D-32)'
+  - 'app.py, db.py, rank.py, rank_llm.py, ingest.py, schema.sql, reference_data.sql, templates/*.html, static/style.css, test_rank_llm.py (read at commit 5fb1330 for the status revalidation)'
 excludedDocuments:
   - "sow/SOW - New College Course Navigator (v2.0).md -- stale; marks interest ranking Won't-have and ranking out of scope, both reversed by D-22"
 ---
@@ -15,6 +16,230 @@ excludedDocuments:
 ## Overview
 
 This document provides the complete epic and story breakdown for New College Course Navigator, decomposing the requirements from the PRD, UX Design if it exists, and Architecture requirements into implementable stories.
+
+**This is the live backlog.** It was produced by a BMAD run that the team did not vote on, and
+it was kept as archived evidence until November 11, 2026, when the project owner promoted it.
+Two things changed when it was promoted: every story carries an implementation status
+revalidated against the code, and the sprint-1 stories for a formal sign-in page and advisor
+search-by-student were added. Nothing in the original 32 stories was deleted or reworded — the
+statuses and the supersession notes are additions, so the pre-vote text stays auditable.
+
+## Implementation status, revalidated against the code
+
+Read at commit `5fb1330`, against `app.py`, `db.py`, `rank.py`, `rank_llm.py`, `ingest.py`,
+`schema.sql`, `reference_data.sql`, all four templates, `static/style.css` and
+`test_rank_llm.py`. `navigator.db` was not opened — it was being rebuilt — so every claim below
+comes from source, not from data.
+
+| Status | Meaning |
+|---|---|
+| **Implemented** | Every acceptance criterion in the story is met by code that exists |
+| **Partial** | The capability exists but at least one named acceptance criterion is not met |
+| **Not started** | No code implements it |
+
+13 implemented, 10 partial, 9 not started.
+
+| Story | Status | Evidence |
+|---|---|---|
+| 1.1 Enter as a student or an advisor | **Implemented** | `home.html` lists `app_user`; `app.py` `student_view` / `advisor_view`; `base.html` names role and term; `results.html` acting-as banner; `abort(404)` on an unknown student or advisor. No credential, by AR16 — **superseded by 1.5–1.7** |
+| 1.2 Outstanding requirements with hours remaining | **Partial** | `db.outstanding_buckets` with the `DISTINCT completed_id` guard (AR12) and `results.html` `.req-list` render it. AC 3 fails: `outstanding_buckets` returns satisfied requirements too and `results.html` renders them under the heading "Outstanding requirements", marked Complete. Still untested (AR17) |
+| 1.3 Must-include constraints, not just hour totals | **Implemented** | `requirement_bucket.is_must_include` + `min_hours` in `reference_data.sql`; `must_unmet` in `db.outstanding_buckets`; `satisfied` is `and not any(must_unmet)`, so 9 of 9 Humanities hours with no Literature does not read satisfied; `results.html` renders "Must include:" as its own line naming the bucket |
+| 1.4 Which rulebook and catalog year | **Not started** | No `rule_source` table and no provenance columns on `requirement`. `.source-note` exists in `static/style.css` and is used by no template. Matches Architecture §7 |
+| 2.1 Which requirements a section would close | **Implemented** | `rank.rank` intersects a section's buckets with the student's open buckets; `results.html` `.r-badges` names each, `.badge.must` for must-include, and a flagged section keeps its badges. Reachable only through a phrase search, because 2.3 does not exist |
+| 2.2 Why a section was tagged as it was | **Not started** | `offering_attribute.attribute` holds the Banner text and nothing surfaces it. `schedule_type` is printed as metadata, but no badge cites the attribute or the schedule type that produced it, and the lab rule is displayed only, never applied to closure |
+| 2.3 Browse the whole offering list with tags | **Not started** | `app.py` `_results_page` leaves `results` empty when `phrase` is falsy, and `results.html` renders nothing in that case. No pagination over 9,621 sections |
+| 3.1 Search by a free-text interest phrase | **Partial** | `rank.Index` is built once in the `_index` global; phrase is in the query string so results are linkable; every candidate comes from `db.offerings_for_term`. AC 4 fails: an empty phrase raises no error but shows no browse list either, which depends on 2.3. The under-2-second budget (NFR1) is unmeasured |
+| 3.2 Rank requirement-closing matches above either alone | **Partial** | `rank.W_BOTH = 0.75` is added when both halves are non-zero, which is D-19 as a bonus and not as an ordering guarantee: `score = bucket_score + 2.0 × relevance (+0.75)`, so a section with `bucket_score` 4.0 and no phrase match outranks one at 1.0 + 2×0.5 + 0.75 = 2.75 that does both. AC 1 is therefore not guaranteed. The story's own sizing said this: "the weighting is hand-set and correctness is a judgment call, not a test" |
+| 3.3 Surface sections closing two or more requirements | **Partial** | `rank.rank` keys `open_buckets` by `bucket_id` taking the higher weight, so a bucket shared by two requirements (World Language, in `CORE_HUM` and `UNIV_WLANG`) is credited once. But a section carrying two buckets of the **same** requirement — Humanities and Literature, both in `CORE_HUM` — adds both weights, so AC 2 fails and AR12's double count is live on the scoring side. AC 1's "both requirements are named" also fails: badges name buckets, not requirements |
+| 3.4 Collapse duplicate sections to one course | **Implemented** | `rank.rank` keeps the best row per `(subject, course_number)` and counts the rest into `other_sections`; `results.html` prints "+N more section(s)" and omits it at zero |
+| 3.5 Be told plainly when the phrase matched nothing | **Implemented** | `rank.phrase_matched`; `results.html` `.callout.gap` states that what follows is ranked on requirements only, not on the phrase, and suggests no replacement vocabulary (D-17) |
+| 4.1 Guarantee every recommendation is a real offered section | **Implemented** | `rank_llm._validate` drops any CRN not in the input set, counts the drops, de-duplicates, and appends every candidate the model omitted; `results.html` `.provenance` prints the discarded count. A malformed body raises in `json.loads` and `app.py` falls back. Asserted by `test_rank_llm.py` cases 1–4 |
+| 4.2 Reorder candidates by relevance and say why | **Partial** | `rank_llm.rerank` is complete and `reason_source = "llm"` is recorded in `_validate` — and then never read: `results.html` prints `r.reason` with no per-result "model-produced" label, so UX-DR36 and NFR16 are unmet at the result level, only at the page level. AR19 still holds, so the "ancient philosophy above Germanic Mythology" criterion is unverified |
+| 4.3 Keep my personal data off the wire | **Implemented** | `rank_llm.build_prompt` sends the phrase, the open bucket names and public catalog text. `test_rank_llm.py` case 6 asserts no name, email, classification or depth-study label appears, and that no identifier field is labelled into the prompt — so a later addition fails the test, which is what the story asked for |
+| 4.4 Degrade to deterministic ranking rather than failing | **Implemented** | `app.py` catches every exception from `rerank`, logs at warning with `type(e).__name__`, and sets `fallback_from`; `results.html` states which ordering was served. `rank_llm.available()` returns False with no import or credential, so the call is never attempted |
+| 5.1 Show rotating-topic sections with the topic flagged | **Partial** | `ingest.mark_topic_uncertain` requires both a special-topics section and a generic or missing description, so Legends is correctly not flagged, and `results.html` renders "Cannot determine the topic — ask your advisor". AC 4 fails: `GENERIC_DESC_PATTERNS` expands to "varie"/"varies" and never matches "vary", and no pattern matches "subject matter varies" — AR18, 14 of 259 courses |
+| 5.2 Keep requirement closure trustworthy when the topic is not | **Implemented** | `rank.rank` sets `relevance = 0.0` when `topic_uncertain` and leaves `bucket_score` untouched; the badges render with no hedging and the flag sits below them. The only residual risk is the 40-row display cut, not a blend |
+| 6.1 Load the term's seminar themes from the course booklet | **Not started** | No loader, no `nc_seminar_theme` table. `reference/nc-seminar-themes-202710.csv` exists; `reference_data.sql` still carries the D-23 comment saying themes are deliberately absent |
+| 6.2 See which theme each seminar closes | **Not started** | No `NC_SEMINAR` requirement; `requirement.rule_kind` is still `CHECK (rule_kind IN ('bucket', 'numeric'))`, so the theme-coverage kind cannot be represented (AR6) |
+| 6.3 Flag seminars with no published theme | **Not started** | `recommendation.flag` allows only `ranked` and `topic_uncertain`; there is no unknown-theme variant of `UncertaintyFlag` |
+| 7.1 See my advisees and how much each has outstanding | **Implemented** | `app.py` `advisor_view` computes `open_count` and `open_names` per advisee; `advisor.html` renders name, classification, count and the open requirement names, with an empty state. **Modified by 7.6–7.7** |
+| 7.2 Search on a student's behalf and see what they see | **Implemented** | `advisor_student_view` and `student_view` both call `_results_page`, one template, one code path (UX-DR21); the acting-as banner names the student. Note the view is reachable by anyone who can type the URL — see 1.6 |
+| 7.3 Check a proposed term against every outstanding requirement at once | **Not started** | No route, no proposed-term table (AR8). Architecture §7 agrees |
+| 7.4 Confirm or reject proposed depth-study candidates | **Not started** | No proposal record, no advisor decision column (AR9) |
+| 7.5 Warn when nothing offered can close a requirement | **Not started** | Nothing computes outstanding buckets against the term's offerings. `.callout.gap` exists in CSS and is used only for the no-phrase-match message; `RequirementCard` has no fourth state (UX-DR8) |
+| 8.1 Put colour, type and spacing behind tokens | **Partial** | `static/style.css` defines the full colour palette, the spacing scale and the font stacks on `:root`, with a dark re-derivation. AC 1 fails: `#fff`, `#4A1620` and `#F7E9EB` remain as literals in `.masthead`, `.search button` and `.brand`. The type scale is not tokenised at all — 10/11/12/13/14/16/17/20/28px are written literally throughout, against UX-DR2 |
+| 8.2 Meet WCAG 2.1 AA | **Partial** | `:focus-visible` is global at 2px; every status carries a glyph and a word; `.visually-hidden` labels the phrase input; `aria-label` on each requirement section and on the day boxes. Two criteria fail: the phrase input is **not** the first tab stop (the masthead link and the "Hours totals" `<summary>` precede it, UX-DR29), and no contrast audit is recorded for the dark palette, whose values are re-derived and unmeasured |
+| 8.3 Stop truncating the fields the product exists to surface | **Partial** | No `text-overflow`, no `ellipsis` and no template truncation anywhere; `.r-title` is `flex: 1` with a `min-width`. AC 3 fails: a section with no listed instructor renders nothing — `{%- if o.instructors %}` — rather than an explicit placeholder |
+| 8.4 Give every list a designed empty state | **Implemented** | Four `.empty` blocks: no users seeded, no advisees, no outstanding requirements, nothing matched. **Modified by 7.6** — the advisee search adds a fifth case |
+| 8.5 Reflow rather than scroll sideways | **Partial** | The 640px query reflows `.req-list` to one column and restacks the result index. Two gaps: there is no 1024px breakpoint (UX-DR32 names both), and `.scroll-x` is defined but applied to nothing, so the five-column `.grid` tables on the home and advisor screens are unwrapped |
+| 8.6 Make reranking visible rather than silent | **Implemented** | `.provenance` states the ordering method, the model, and either the discarded count or "0 invented CRNs"; the fallback is stated as a fallback. UX-DR35's "deterministic first, then refine" is not built — search is one blocking page load — but no acceptance criterion on this story asks for it |
+
+### A concurrent change that will move six of these statuses
+
+As of this revalidation the working tree carries uncommitted work against
+`docs/specs/tech-spec-relevance-requirement-separation.md`, by another hand, which rewrites
+`rank.py`, `app.py`, `db.py`, `rank_llm.py` and `schema.sql`. It replaces the blended score with
+four labelled result groups, removes `rank.phrase_matched`, removes the `limit` argument from
+`rank.rank`, adds `recommendation.result_group`, and tells the reranker **not** to rank on
+closure. The statuses above describe commit `5fb1330`; when that work lands, **3.2, 3.3, 3.5,
+4.2, 4.4 and 8.6 must be re-read before they are trusted**, and `templates/results.html` has not
+yet been updated to the new `groups` shape. It also touches `app.py` and `results.html`, which
+is where sprint 1 lands — see the sequencing note in `sprint-plan.md`.
+
+### Claims in the other planning documents that the code does not support
+
+Found while revalidating. None is a story; each is a line in another document that should be
+corrected there, and two of them affect how a story is read.
+
+1. **`Architecture.md` §6: "TF-IDF retrieves the top 80; the model reorders *those*."** At commit
+   `5fb1330` `app.py` calls `rank.rank(..., limit=40)` while `rank_llm.MAX_CANDIDATES` is 80, so
+   the reranker could never be handed more than 40 and the 80 could not bind. The in-flight spec
+   fixes this deliberately and documents it as TD-7.
+2. **`Architecture.md` §7 and Story 1.1 disagree about FR33.** §7 lists "Real role-based sign-in"
+   under *Not yet built*; Story 1.1 lists FR33 and FR34 as covered and is sized as having "no
+   credential handling (AR16)". Both cannot be right. Proposed D-33 is what settles it.
+3. **"Approximate" understates `NC_DEPTH`.** The PRD's open items and `Architecture.md` both call
+   the depth-study hour rules approximate. `db.numeric_progress` computes `NC_DEPTH` as the sum
+   of *all* the student's completed credits against 33, and `NC_DEPTH_UPPER` as all credits at
+   300 or above against 15. That is not an approximation of the rule; it is a number that
+   saturates past 100% for any senior — measured at 482% for the seeded senior. The feature
+   that would have surfaced it was dropped; the defect itself was not fixed and is a cleanup
+   item. Full detail under "Dropped — the degree-percent-complete indicator".
+4. **`UX Design.md` §5 specifies `SeatCounter` as "17 of 20".** `results.html` renders "17 seats"
+   or "FULL", and the specified form is not currently renderable at all:
+   `db.offerings_for_term` selects `seats_available` but not `enrollment` or `max_enrollment`,
+   though the schema has both.
+5. **Two specified components are styled and never rendered.** `static/style.css` defines
+   `.chip-status` (`StatusChip`, UX-DR7) and `.source-note` (`SourceNote`, UX-DR10) and no
+   template uses either. Reading the stylesheet makes those two look done; they are not on screen.
+6. **`data-model.md` says the 14 tables were "verified against the live database".** That
+   verification could not be repeated here — `navigator.db` was being rebuilt and was not opened
+   — and the in-flight change adds a column to `recommendation`, so the diagram will need
+   re-verifying rather than trusting.
+7. **The setup pipeline is printed in two different orders.** AR2 in this document says
+   `ingest.py --reset`, `seed.py`, `descriptions.py`; `README.md` and `Architecture.md` §4 both
+   say ingest, descriptions, seed. Each step is idempotent so nothing breaks, but the documents
+   disagree in print.
+
+## What sprint 1 adds, supersedes and modifies
+
+Six stories were added on November 11, 2026 for the two features the project owner asked for.
+No original story was deleted or reworded; the effects on them are recorded here and inline.
+
+| New story | Size | Effect on the existing backlog |
+|---|---|---|
+| 1.5 Sign in with a credential | L | **Supersedes** Story 1.1's first two acceptance criteria ("Given the role picker is open") and voids its sizing note, "no credential handling (AR16)". 1.1's header, acting-as and not-found criteria survive unchanged |
+| 1.6 Scope every student view to the signed-in user | M | **Modifies** Story 7.2 — the advisor-for-student view needs an ownership check it does not have — and closes the hole that `/student/<id>` is readable by anyone who can type a number |
+| 1.7 Sign out and end the session | S | New. Nothing existing covers ending a session, because nothing existing starts one |
+| 7.6 Find an advisee by name | M | **Modifies** Story 7.1: the advisee list becomes the no-query state of a search rather than a screen of its own. **Modifies** Story 8.4 — a fourth empty-state variant, "no advisee matched", against UX-DR18's stated three |
+| 7.7 See what each advisee is working on | S | New. Reads `student.depth_study_label` and `search_request.phrase`, both of which exist and neither of which reaches the advisor screen |
+| ~~7.8 Show a degree-progress indicator~~ | — | **Dropped November 11 2026**, the day it was added. `db.numeric_progress` reads 482% for the seeded senior, so there was no honest figure to render. Nothing else depended on it |
+
+Also touched, and not re-sized here: Stories 8.1 and 8.2 gain a surface. A sign-in form is new
+UI that needs the token set, a visible focus indicator and a labelled input, and it becomes the
+first screen every user sees — which makes the 8.2 criteria about tab order and focus visible on
+the one page that cannot be skipped.
+
+## Open decisions this sprint depends on
+
+Both sprint-1 features contradict something already decided, and this project's convention is
+that an open decision is surfaced and routed to the owner rather than guessed. The elicitation
+running log is the source of truth and holds **D-01 → D-32**; it is not in this repository. A
+feature that contradicts one of those needs a **new decision ID recorded by Jaxon in the running
+log §6**. The IDs below are proposed numbers for that record, not decisions — nothing here is
+decided, and neither story ships until the matching entry exists.
+
+### Proposed D-33 — a formal sign-in page, replacing the role picker
+
+**What is being reversed, plainly.** **AR16** states "No auth provider is in scope. The role
+picker stands in for authentication; the role split is what matters for the demonstration."
+A sign-in page reverses that outright, and with it `Architecture.md` §2 ("Auth: **None** —
+deliberate") and §9's first row, whose last line reads "The first row is the one to be honest
+about in the final presentation: the product models two roles and authenticates neither."
+
+**D-20** is reversed in its *approach*, not in its content. D-20 and F-40 say both roles need a
+login and that the role split is what the system models; v1 read that as identity rather than
+security, and `schema.sql` records the reading inline on `app_user`: "No auth provider in v1
+(D-26 scope) -- this is identity, not security." A sign-in page makes it security. **FR33 is not
+reversed** — it already reads "A user signs in as either a student or an advisor, and sees the
+view for that role." What changes is what "signs in" means.
+
+**The design questions this raises. They are not answered here.**
+
+1. **Which identity provider?** UA single sign-on is the only one a real deployment could use,
+   and **AR15** says there is no deployment — the application runs on localhost:5000, where an
+   SSO redirect cannot complete without a client registered with the university. The
+   alternatives are a local credential table or one shared demo passphrase. The three are
+   different stories: roughly L, M and S.
+2. **Where do credentials live?** `app_user` has `username` and no password column. Adding one
+   makes `navigator.db` a secret-bearing file, and `Architecture.md` §2 currently sells SQLite
+   as "survives being emailed". It also adds a hashing dependency to a stack whose only hard
+   dependency is Flask (**AR1**). Choose SSO and the question disappears.
+3. **Does the seeded-user picker survive for grading and demo?** `seed.py` creates one advisor
+   and three students (**D-24**) and the graded demonstration needs all four reachable. A demo
+   bypass left in the shipped code is a second, unauthenticated door, which weakens the thing
+   the story exists for. Removing it, keeping it, or gating it on an environment variable are
+   three different claims to make in the final presentation.
+4. **What happens to `/student/<id>`?** Today anyone can read any student's completed coursework
+   by typing a number, and **NFR11** says that is education-record data to which FERPA applies.
+   Either the pattern stays and gains an ownership check (Story 1.6), or it is replaced by a
+   `/me` route plus `/advisor/student/<id>`, which rewrites every link and changes **UX-DR22**:
+   a shareable result URL only works if the recipient is permitted to open it — an advisor is,
+   a classmate is not, and a signed-out link becomes a redirect to sign-in.
+5. **Session mechanism and secret.** A Flask session needs a `SECRET_KEY`, which is a new `.env`
+   key under **AR14**, and `app.py` currently runs `app.run(debug=True)` — the debugger would be
+   served alongside a login form.
+6. **The PRD's own evidence rule.** No FR covers a credential; FR33 covers the role split. By
+   the PRD's rule — "a requirement with no ID is an opinion and does not belong here" — this
+   feature owes a new FR carrying the new decision ID once it is recorded.
+
+**If it is not decided:** Stories 1.5, 1.6 and 1.7 cannot be sized or started, and Story 7.6's
+"my advisees" has no definition to be scoped against.
+
+### Dropped — the degree-percent-complete indicator
+
+**Dropped by the project owner on November 11, 2026, before any decision was recorded.** This
+was proposed D-34. It is kept here rather than deleted, because the measurement behind it is the
+only record of a live defect, and because a later sprint should not resurrect the feature as
+though it were a UI question.
+
+**Why it was dropped: the computation underneath it is wrong, not approximate.**
+`db.numeric_progress()` computes `NC_DEPTH` (33 hours) as `SUM(credits)` over *all* of the
+student's completed coursework, and `NC_DEPTH_UPPER` (15 hours at 300/400) as the sum of all
+credits at 300 or above. Every course a student has ever taken counts toward their depth study.
+Measured against the rebuilt database on November 11, 2026 — student 1 Jordan Reyes, a senior
+with 159 credits:
+
+| Requirement | Computed | `approximate` |
+|---|---|---|
+| `NC_DEPTH` | 159/33 = **482%** | True |
+| `NC_DEPTH_UPPER` | 55/15 = **367%** | True |
+| `UNIV_TOTAL` | 159/120 = **132%** | **False** |
+| `UNIV_UPPER` | 55/36 = **153%** | **False** |
+
+`approximate: True` understates it. 482% is not an approximation of a rule, and two of the four
+over-100% figures are not flagged approximate at all. This is the same shape of defect as
+**AR12** and **NFR8**: a sum over the wrong set, overstating progress in the direction that
+flatters. Student 2 reads plausibly only because she has 12 credits recorded; the defect is
+invisible on a freshman and unmissable on a senior.
+
+**Two further structural facts about the denominator**, both still true and both unaddressed.
+Three of the nine bucket requirements — `CORE_MATH`, `CORE_COMPASS`, `UNIV_WLANG` — have
+`hours_needed` NULL and are satisfied by `min_courses`, so they have no hours denominator at
+all; `outstanding_buckets` substitutes `(min_courses or 1) * 3` for display, which is a 3-hour
+guess and not a rule from the checklist. And `approximate` is keyed on the string prefix `NC_`,
+so the `NC_SEMINAR` requirement Epic 6 adds (**AR6**) would be marked approximate by a string
+match with nobody deciding it.
+
+**What the drop does and does not close.** It removes the new surface: Story 7.8 is dropped and
+no percentage ships. It does **not** fix the defect, which is already on screen — the "Hours
+totals" panel in `templates/results.html` renders these same rows, so Jordan Reyes displays
+`159/33` today. The defect is routed to the cleanup pass, not to this sprint.
+
+**If the feature is ever revived**, it needs the per-course depth-study flag the PRD carries as a
+Growth Feature: a schema change plus a per-student data-entry pass, larger than both sprint-1
+features together. Reviving it without that flag means choosing which compromise to print, which
+is what **D-17**, **D-27** and **D-31** exist to refuse.
 
 ## Requirements Inventory
 
@@ -104,6 +329,12 @@ scaffolding story here would be invented work in a graded backlog.
 - AR18: An open defect exists in `ingest.GENERIC_DESC_PATTERNS`: it cannot match "vary" or "subject matter varies", leaving 14 of 259 special-topics courses unflagged. The fix must be title-aware and is a pending team decision, not a patch.
 - AR19: The live LLM path has never run against a real credential. The response schema is unvalidated; the first real call may surface a schema error, which the fallback will catch.
 
+> **AR16 is under reversal.** Sprint 1 replaces the role picker with a credentialed sign-in
+> page, which contradicts AR16 directly and reads on the architecture's "Auth: None —
+> deliberate". It does not ship until the owner records the reversal — see "Open decisions this
+> sprint depends on", proposed D-33. AR15 (no deployment, localhost only) is **not** reversed,
+> and that constrains which identity providers are even reachable.
+
 ### UX Design Requirements
 
 - UX-DR1: Implement the colour token set in §4 as CSS custom properties on `:root`, replacing hard-coded colours in `static/style.css`.
@@ -183,6 +414,13 @@ Every FR maps to exactly one epic. 34 of 34 covered; no FR appears in two epics.
 | FR32 | 7 | Warn when nothing offered closes a requirement |
 | FR33 | 1 | Role-based entry as student or advisor |
 | FR34 | 1 | One advisor per student; records person has no role |
+
+**Sprint 1 adds no FRs, and that is the point.** Five new stories cover one capability the PRD
+does not state: a credentialed sign-in, since FR33 covers the role split, not a credential. By
+the PRD's own evidence rule — "a requirement with no ID is an opinion and does not belong
+here" — it owes an FR carrying its new decision ID once proposed D-33 is recorded. Until then
+these stories carry the decision gap, not a requirement. A sixth story, 7.8, would have owed a
+second FR for a degree-progress indicator; it was dropped.
 
 ### Dependency order
 
@@ -280,6 +518,11 @@ search, ranking or AI.
 
 **FRs:** FR3, FR5, FR6, FR7, FR8, FR33, FR34 · **NFRs:** NFR8, NFR9 · **UX-DRs:** UX-DR5, UX-DR6, UX-DR8, UX-DR10, UX-DR19
 
+**Sprint 1 adds Stories 1.5, 1.6 and 1.7** — a credentialed sign-in page in place of the role
+picker, an ownership check on the student routes, and sign-out. They reverse AR16 and are
+blocked on proposed D-33. The epic's title was already "Sign in and see where I stand"; until
+sprint 1 the first half of it was a list of names.
+
 ### Story 1.1: Enter as a student or an advisor
 
 As a student or advisor,
@@ -288,6 +531,7 @@ So that what I see is my own position rather than a generic catalog.
 
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — two roles and a one-advisor-per-student rule, but no credential handling (AR16).
 **Covers:** FR33, FR34 · **UX:** UX-DR5, UX-DR19
+**Status:** Implemented — evidence in the status table above. **Superseded in part by Stories 1.5, 1.6 and 1.7:** the role-picker criteria and the "no credential handling (AR16)" sizing no longer hold.
 
 **Acceptance Criteria:**
 
@@ -316,6 +560,7 @@ So that I know what still needs closing before I look at any course.
 
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — thirteen requirements over a twelve-bucket union, and the hour maths has a known double-count trap.
 **Covers:** FR5, FR7, FR8 · **NFRs:** NFR8 · **Architecture:** AR12 · **UX:** UX-DR6, UX-DR8
+**Status:** Partial — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -343,6 +588,7 @@ So that I do not close the hours and still fail the requirement.
 
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — the constraint is already modelled as `is_must_include`; this surfaces it.
 **Covers:** FR6 · **UX:** UX-DR8, UX-DR9
+**Status:** Implemented — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -366,6 +612,7 @@ So that I can tell whether the rule actually applies to me.
 
 **MoSCoW:** Should · **Size:** M · **Why:** Uncertain — needs a provenance store that does not exist, and the authority order rests on one DegreeWorks audit (Q-27).
 **Covers:** FR3 · **NFRs:** NFR9 · **Architecture:** AR7 · **UX:** UX-DR10 · **Decisions:** D-29, D-30, D-32
+**Status:** Not started — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -380,6 +627,106 @@ So that I can tell whether the rule actually applies to me.
 **Given** a student on a catalog year other than the loaded rule set
 **When** the view loads
 **Then** a notice states which catalog year is being applied and that it may not be theirs.
+
+### Story 1.5: Sign in with a credential
+
+As a student or an advisor,
+I want to sign in with a credential instead of picking my name off a public list,
+So that my record is reached by proving who I am rather than by knowing a URL.
+
+**MoSCoW:** Must · **Size:** L · **Why:** Uncertain — the provider, the credential store and the fate of the demo picker are one unmade decision, and the size is L, M or S depending on which way it goes.
+**Covers:** FR33 (re-covered — the picker satisfied it without a credential) · **NFRs:** NFR11 · **Architecture:** reverses AR16; adds a config key under AR14 · **UX:** UX-DR5, which gains a signed-out state · **Decisions:** needs **proposed D-33**, not yet recorded
+**Status:** Not started · **Blocked on proposed D-33.** Supersedes the role-picker criteria of Story 1.1.
+**Added:** sprint 1, November 11 2026.
+
+**Acceptance Criteria:**
+
+Only the criteria that hold under *every* option in proposed D-33 are written here. Criteria
+naming a provider or a credential store would decide the decision rather than wait for it.
+
+**Given** no session
+**When** any route other than the sign-in page is requested
+**Then** the sign-in page is served and no student or advisor data appears in the response.
+
+**Given** the sign-in page
+**When** a credential matching an `app_user` row is submitted
+**Then** a session is established naming that user, and the view for that user's role opens.
+
+**Given** the sign-in page
+**When** a credential matching nothing is submitted
+**Then** the page states that sign-in failed without saying which half was wrong, and no view opens.
+
+**Given** a signed-in user
+**When** the header renders
+**Then** it names the signed-in user and their role, as the picker's header did.
+
+**Given** the application is started with no session secret configured
+**When** it boots
+**Then** it refuses to start rather than running on a default secret.
+
+### Story 1.6: Scope every student view to the signed-in user
+
+As a student,
+I want my record reachable only by me and my advisor,
+So that my completed coursework is not readable by anyone who can increment a number in a URL.
+
+**MoSCoW:** Must · **Size:** M · **Why:** Complex — `/student/<id>` and `/advisor/<id>` key on raw record ids, and `_results_page` checks only that the student exists. One route pattern has to serve a student, that student's advisor, and nobody else.
+**Covers:** FR33, FR34 · **NFRs:** NFR11 — completed coursework is education-record data · **Decisions:** D-25 makes "my advisee" the entire authorisation rule
+**Depends on:** Story 1.5 — there is no identity to check against until sign-in exists.
+**Status:** Not started · **Blocked on proposed D-33** through Story 1.5.
+**Added:** sprint 1, November 11 2026.
+
+**Acceptance Criteria:**
+
+**Given** a signed-in student
+**When** `/student/<id>` is requested for a different student's id
+**Then** the request is refused and carries none of that student's data.
+
+**Given** a signed-in advisor
+**When** `/advisor/<id>/student/<id>` is requested for one of their own advisees
+**Then** the view opens as it does today.
+
+**Given** a signed-in advisor
+**When** the student named in the URL is not their advisee
+**Then** the request is refused, because D-25 makes one-advisor-per-student the whole rule.
+
+**Given** a signed-in student
+**When** an advisor route is requested
+**Then** the advisor view does not render.
+
+**Given** any of the refusals above
+**When** it is served
+**Then** it does not reveal whether that id exists, so the route cannot be used to enumerate students.
+
+**Given** a search is saved
+**When** `search_request.actor_user_id` is written
+**Then** it is the signed-in user — `app.py` today selects the first `app_user` row matching the id in the path, which is identity by assertion.
+
+### Story 1.7: Sign out and end the session
+
+As a student or an advisor,
+I want to sign out,
+So that the next person at a shared advising-office machine does not land in my record.
+
+**MoSCoW:** Must · **Size:** S · **Why:** Complex — small, but without it sign-in is a one-way door and the acting-as state has no exit.
+**Covers:** FR33 · **UX:** UX-DR5
+**Depends on:** Story 1.5.
+**Status:** Not started · **Blocked on proposed D-33** through Story 1.5.
+**Added:** sprint 1, November 11 2026.
+
+**Acceptance Criteria:**
+
+**Given** a signed-in user
+**When** sign-out is chosen
+**Then** the session is cleared and the sign-in page is served.
+
+**Given** a session that has been signed out
+**When** a student view is requested again
+**Then** the sign-in page is served, and the signed-in response was not marked cacheable.
+
+**Given** an advisor acting for a student
+**When** sign-out is chosen
+**Then** the acting-as state ends with the session and does not carry into the next sign-in.
 
 ---
 
@@ -398,6 +745,7 @@ So that I can tell what is worth taking without asking anyone.
 
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — the join between a student's outstanding buckets and each section's attributes is the product's core, and it must stay correct for sections whose topic is unknown.
 **Covers:** FR1, FR4 · **UX:** UX-DR9, UX-DR12, UX-DR14
+**Status:** Implemented — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -425,6 +773,7 @@ So that I can check the tool rather than trust it.
 
 **MoSCoW:** Should · **Size:** S · **Why:** Complex — the data is already in `offering_attribute`; this exposes it.
 **Covers:** FR2 · **NFRs:** NFR7 · **UX:** UX-DR12
+**Status:** Not started — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -444,6 +793,7 @@ So that the tool informs my own search rather than replacing it.
 
 **MoSCoW:** Could · **Size:** M · **Why:** Dependent — needs Story 2.1's tagging; pagination over 9,621 sections is the open part.
 **Covers:** FR14 · **NFRs:** NFR14 · **UX:** UX-DR25 · **Decisions:** D-04
+**Status:** Not started — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -472,6 +822,7 @@ So that I do not have to pick from a taxonomy that does not describe my depth st
 
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — index construction over 9,621 sections must stay under the 2-second budget and build once per process.
 **Covers:** FR9, FR10 · **NFRs:** NFR1, NFR3 · **UX:** UX-DR11, UX-DR22 · **Decisions:** D-22
+**Status:** Partial — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -499,6 +850,7 @@ So that the top of the list is the set of courses genuinely worth my time.
 
 **MoSCoW:** Must · **Size:** L · **Why:** Uncertain — the weighting is hand-set and correctness is a judgment call, not a test.
 **Covers:** FR11 · **Decisions:** D-19
+**Status:** Partial — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -522,6 +874,7 @@ So that I can graduate without taking more hours than I need.
 
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — must not re-introduce the same-requirement double count from AR12.
 **Covers:** FR12 · **NFRs:** NFR8 · **Decisions:** D-11, D-19
+**Status:** Partial — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -541,6 +894,7 @@ So that one course cannot fill the whole results page.
 
 **MoSCoW:** Should · **Size:** S · **Why:** Complex — measured at up to 30 rows per course.
 **Covers:** FR13 · **UX:** UX-DR12
+**Status:** Implemented — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -560,6 +914,7 @@ So that I do not read an arbitrary ordering as a recommendation.
 
 **MoSCoW:** Should · **Size:** S · **Why:** Complex — must distinguish "no lexical match" from "no results at all".
 **Covers:** FR15 · **UX:** UX-DR11, UX-DR18 · **Decisions:** D-17
+**Status:** Implemented — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -593,6 +948,7 @@ So that I do not hit the failure both AI users in our research hit.
 
 **MoSCoW:** Must · **Size:** L · **Why:** Complex — the validation boundary is the product's differentiator and must hold against malformed output.
 **Covers:** FR17, FR18, FR19 · **UX:** UX-DR16 · **Decisions:** D-16 · **Evidence:** F-26
+**Status:** Implemented — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -630,6 +986,7 @@ So that a course about my interest is not ranked below one that merely shares a 
 **MoSCoW:** Must · **Size:** L · **Why:** Uncertain — the live path has never run against a real credential, so the response schema is unvalidated (AR19).
 **Depends on:** Story 4.1 — reranking must not ship before the validation boundary exists (D-16).
 **Covers:** FR16, FR20 · **NFRs:** NFR2, NFR10, NFR16 · **UX:** UX-DR16, UX-DR36
+**Status:** Partial — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -662,6 +1019,7 @@ So that using the tool does not expose my record.
 
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — asserted by test rather than by comment; the payload must be pinned.
 **Covers:** FR22 · **NFRs:** NFR12, NFR13
+**Status:** Implemented — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -685,6 +1043,7 @@ So that a demonstration or an advising appointment is never blocked by a network
 
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — must cover credential, network, timeout and schema failures identically.
 **Covers:** FR21 · **NFRs:** NFR4, NFR5 · **UX:** UX-DR16, UX-DR35
+**Status:** Implemented — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -717,6 +1076,7 @@ So that I ask my advisor instead of guessing or missing it entirely.
 
 **MoSCoW:** Must · **Size:** M · **Why:** Uncertain — the current detector under-matches on 14 of 259 courses and the fix must be title-aware (AR18).
 **Covers:** FR23, FR25 · **UX:** UX-DR15
+**Status:** Partial — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -744,6 +1104,7 @@ So that uncertainty about the subject does not hide a requirement I could close.
 
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — the two halves of the score must stay separate and must not be blended.
 **Covers:** FR24 · **Decisions:** D-27
+**Status:** Implemented — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -776,6 +1137,7 @@ So that theme coverage can be tracked at all, given Banner carries no theme attr
 
 **MoSCoW:** Should · **Size:** M · **Why:** Dependent — the only source is a per-term PDF with no feed, so the refresh is manual and must be documented.
 **Covers:** FR26 · **NFRs:** NFR19 · **Architecture:** AR5
+**Status:** Not started — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -799,6 +1161,7 @@ So that I can tell which of the three I still need.
 
 **MoSCoW:** Should · **Size:** L · **Why:** Complex — adds a requirement kind the schema lacks: coverage across three themes plus a level distribution, not hours against a pool.
 **Covers:** FR26 · **Architecture:** AR6
+**Status:** Not started — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -822,6 +1185,7 @@ So that I ask rather than assume it counts for the theme I need.
 
 **MoSCoW:** Should · **Size:** S · **Why:** Complex — reuses the existing uncertainty guardrail; three of fifteen seminars this term are affected.
 **Covers:** FR27 · **UX:** UX-DR15 · **Decisions:** D-27, D-31
+**Status:** Not started — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -842,6 +1206,11 @@ confirms or rejects depth-study proposals.
 
 **FRs:** FR28–FR32 · **UX-DRs:** UX-DR17, UX-DR19, UX-DR20, UX-DR21, UX-DR36 · **Architecture:** AR8, AR9
 
+**Sprint 1 adds Stories 7.6 and 7.7** — search the advisee set by name, and show each result's
+depth study and recent phrases. FR28 is an advisee *list*; a search is more than that, and no FR
+covers it. A third story, 7.8, carried a degree-progress indicator and was dropped the day it
+was added — see above.
+
 ### Story 7.1: See my advisees and how much each has outstanding
 
 As an advisor,
@@ -850,6 +1219,7 @@ So that I can see who needs attention before the appointment.
 
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — reuses the Epic 1 computation per advisee.
 **Covers:** FR28 · **UX:** UX-DR19
+**Status:** Implemented — evidence in the status table above. **Modified by Stories 7.6 and 7.7:** the list becomes the no-query state of a search.
 
 **Acceptance Criteria:**
 
@@ -869,6 +1239,7 @@ So that we are looking at the same thing during the appointment.
 
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — one template and one code path; divergence between the two views is a defect.
 **Covers:** FR29 · **UX:** UX-DR21
+**Status:** Implemented — evidence in the status table above. **Modified by Story 1.6:** the route needs an ownership check once sign-in exists.
 
 **Acceptance Criteria:**
 
@@ -888,6 +1259,7 @@ So that I confirm a plan in one review instead of course by course from memory.
 
 **MoSCoW:** Must · **Size:** L · **Why:** Complex — needs a proposed-term representation and route that do not exist, plus per-requirement roll-up across the set.
 **Covers:** FR30 · **Architecture:** AR8 · **UX:** UX-DR20 · **Evidence:** F-04
+**Status:** Not started — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -915,6 +1287,7 @@ So that the judgment that is mine stays mine.
 
 **MoSCoW:** Should · **Size:** L · **Why:** Uncertain — depth study has no machine-readable record to check against, so the proposal can only ever be a suggestion.
 **Covers:** FR31 · **Architecture:** AR9 · **UX:** UX-DR36 · **Evidence:** F-04 · **Decisions:** D-17, D-26
+**Status:** Not started — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -943,6 +1316,7 @@ So that I can plan around it instead of discovering it too late.
 
 **MoSCoW:** Should · **Size:** M · **Why:** Complex — computable from outstanding buckets against offerings, but must not fire on requirements already satisfied.
 **Covers:** FR32 · **UX:** UX-DR17 · **Evidence:** F-12, F-13
+**Status:** Not started — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -957,6 +1331,98 @@ So that I can plan around it instead of discovering it too late.
 **Given** a requirement the student has already satisfied
 **When** the panel renders
 **Then** no warning appears regardless of what is offered.
+
+### Story 7.6: Find an advisee by name
+
+As an advisor,
+I want to type part of a student's name and get my matching advisees,
+So that I can open the right student during an appointment instead of reading the whole list.
+
+**MoSCoW:** Must · **Size:** M · **Why:** Complex — the advisee list is one flat table today; the search has to stay scoped to the signed-in advisor's own advisees and share one row component with the unsearched list, or the two will diverge.
+**Covers:** FR28 — extends it from a list to a search · **UX:** UX-DR19, UX-DR18 (a fourth variant), UX-DR22 — the query lives in the query string, as the phrase search's does
+**Depends on:** Stories 1.5 and 1.6 — "my advisees" is not a defined set without a signed-in advisor.
+**Status:** Not started · Modifies Story 7.1, which becomes the no-query state. Adds a variant to Story 8.4.
+**Added:** sprint 1, November 11 2026.
+
+**Acceptance Criteria:**
+
+**Given** a signed-in advisor with advisees
+**When** no query has been entered
+**Then** the full advisee list renders as it does today, with its open-requirement counts.
+
+**Given** a query
+**When** it matches part of an advisee's name
+**Then** only matching advisees are listed, each linking to the existing advisor-for-student view.
+
+**Given** a query naming a real student who is not this advisor's advisee
+**When** results render
+**Then** that student does not appear, and nothing in the response reveals that they exist.
+
+**Given** a query matching none of this advisor's advisees
+**When** results render
+**Then** the empty state names the query and says the search covers this advisor's advisees only.
+
+**Given** a search result list
+**When** I copy the page URL and open it again
+**Then** the same query and the same results are reproduced.
+
+**Given** an advisor with the full student body as advisees
+**When** a query is run
+**Then** the page does not compute a requirement roll-up for every non-matching advisee —
+`advisor_view` calls `db.outstanding_buckets` once per advisee, which is ten queries each
+(one requirement query plus one bucket query for each of the nine bucket requirements).
+
+### Story 7.7: See what each advisee is working on in the search result
+
+As an advisor,
+I want each search result to show that student's depth study and the words they last searched,
+So that I recognise the right student and know what they are pursuing before opening them.
+
+**MoSCoW:** Must · **Size:** S · **Why:** Complex — both fields already exist (`student.depth_study_label`, `search_request.phrase`) and neither is on the advisor screen. The care is in labelling them as the student's own words rather than as a system judgment (D-22).
+**Covers:** FR28 · **UX:** UX-DR19 · **Decisions:** D-22 — the depth study is a free-text working label and ranking never reads it; D-26 — nothing is approved before the third-year review · **Evidence:** F-04
+**Depends on:** Story 7.6.
+**Status:** Not started.
+**Added:** sprint 1, November 11 2026.
+
+**Acceptance Criteria:**
+
+**Given** an advisee with a depth-study label
+**When** the row renders
+**Then** the label is shown as that student's own working label, not as a confirmed programme of study.
+
+**Given** an advisee with no label recorded
+**When** the row renders
+**Then** it says the label is not recorded rather than leaving the field blank.
+
+**Given** an advisee who has run searches
+**When** the row renders
+**Then** it shows their most recent interest phrases, attributed as what the student typed.
+
+**Given** an advisee who has never searched
+**When** the row renders
+**Then** it says so, and no interest is inferred from their coursework.
+
+**Given** any row
+**When** it renders
+**Then** nothing on it asserts whether a course or a phrase fits the depth study — that judgment stays the advisor's.
+
+### Story 7.8: Show a degree-progress indicator in the search result — DROPPED
+
+**Dropped by the project owner on November 11, 2026**, the same day it was added and before
+proposed D-34 was recorded. The acceptance criteria written for it are not reproduced, because
+none of them can be satisfied while the computation behind the figure is wrong.
+
+**Why.** `db.numeric_progress` reads **482%** for the seeded senior — see "Dropped — the
+degree-percent-complete indicator" above for the measurement. There was no honest figure to
+render, so there was no compromise worth choosing and no decision worth recording.
+
+**Status:** Dropped. Not blocked and not deferred: the underlying computation has to be fixed
+before any roll-up figure is worth specifying, and that fix is a cleanup item rather than a
+feature.
+**Added:** sprint 1, November 11 2026. **Dropped:** November 11 2026.
+
+Stories 7.6 and 7.7 never depended on it and are unaffected. The `AdviseeRow` component it would
+have extended is still built by 7.7.
 
 ---
 
@@ -976,6 +1442,7 @@ So that a colour or spacing change happens in one place and stays consistent.
 
 **MoSCoW:** Should · **Size:** M · **Why:** Complex — requires auditing every literal colour in the stylesheet and replacing it.
 **Covers:** UX-DR1, UX-DR2, UX-DR3, UX-DR4, UX-DR23, UX-DR24
+**Status:** Partial — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -999,6 +1466,7 @@ So that I can use it at all.
 
 **MoSCoW:** Should · **Size:** L · **Why:** Complex — spans contrast, focus, keyboard order, screen-reader text and landmarks, and both reference systems fail parts of it.
 **Covers:** UX-DR7, UX-DR26, UX-DR27, UX-DR28, UX-DR29, UX-DR30, UX-DR31
+**Status:** Partial — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -1030,6 +1498,7 @@ So that the tool does not repeat the failure it was built to fix.
 
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — truncation is the specific defect observed in the reference system.
 **Covers:** UX-DR25
+**Status:** Partial — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -1053,6 +1522,7 @@ So that I can tell the difference between no results and a broken page.
 
 **MoSCoW:** Should · **Size:** M · **Why:** Complex — three distinct variants with different copy.
 **Covers:** UX-DR18, UX-DR34
+**Status:** Implemented — evidence in the status table above. **Modified by Story 7.6:** a fourth empty-state variant, no advisee matched.
 
 **Acceptance Criteria:**
 
@@ -1072,6 +1542,7 @@ So that I am not scrolling a wide grid to read an attribute.
 
 **MoSCoW:** Could · **Size:** M · **Why:** Dependent — needs the card components from Epics 1–3 to exist first.
 **Covers:** UX-DR32, UX-DR33
+**Status:** Partial — evidence in the status table above.
 
 **Acceptance Criteria:**
 
@@ -1091,6 +1562,7 @@ So that I know whether the AI ran and whether it fell back.
 
 **MoSCoW:** Should · **Size:** S · **Why:** Dependent — needs Epic 4's provenance data.
 **Covers:** UX-DR35
+**Status:** Implemented — evidence in the status table above.
 
 **Acceptance Criteria:**
 
