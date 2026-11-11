@@ -4,6 +4,12 @@ Stage 2 of a two-stage ranker. `rank.py` retrieves candidates with TF-IDF; this
 module asks Claude to reorder *those candidates only* and write the one-line
 `reason` the ERD already has a column for.
 
+The model is no longer told to rank dual-fit sections first (TD-6). Closure is
+encoded as group membership before stage 2 runs, so repeating it as a ranking
+instruction here would just reproduce the distortion on the candidates the model
+does see. Closure data still goes in the prompt -- the generated `reason` has to
+be able to say what a course closes (FR20) -- only the instruction is gone.
+
 THE RULE THAT MATTERS
 ---------------------
 F-26: both AI users in the elicitation reported that an AI recommended courses
@@ -83,11 +89,12 @@ You will be given:
   - a short interest phrase they typed
   - a numbered list of REAL sections offered this term, each with a CRN
 
-Rank the sections by how well they serve the student, weighing two things:
-  1. whether the section closes one of their outstanding requirements
-  2. how well the course actually fits the interest phrase
+Rank the sections by how well the course actually fits the interest phrase.
 
-A section that does BOTH must rank above one that does only one of them.
+Requirement closure is NOT a ranking criterion for you. The caller has already
+grouped these sections by what they close, so a section that closes nothing can
+legitimately rank first. The bucket names and the per-section "closes:" clause
+are given so your reason can tell the student what a section would close.
 
 Hard rules:
   - Return ONLY CRNs from the list you were given. Never invent a course, a CRN,
@@ -247,3 +254,31 @@ def rerank(results, phrase, outstanding, model=None, limit=MAX_CANDIDATES):
         "input_tokens": getattr(usage, "input_tokens", None),
         "output_tokens": getattr(usage, "output_tokens", None),
     }
+
+
+def rerank_groups(groups, phrase, outstanding, model=None):
+    """Rerank group 1 of a `rank.group_results()` dict. Returns (groups, meta).
+
+    The pool is the UNCAPPED group 1, so `MAX_CANDIDATES` is now the ONLY cut
+    before stage 2 -- 55 courses clear the floor on "climate policy", 15 of
+    which the old `limit=40` cut before the model ever saw them (TD-7). At 55
+    against a cap of 80 it still does not bind on that phrase; what changed is
+    that nothing else cuts first. The display cap is the caller's, applied to
+    what comes back.
+
+    Group 3 is never sent: it has no topical signal to rank on, and its reasons
+    must keep saying nothing about the phrase. That makes reason provenance
+    mixed -- groups 1 and 2 are LLM-authored, group 3 is TF-IDF -- which the
+    provenance line has to state rather than attribute uniformly (TD-12).
+
+    Returns a NEW dict and never mutates `groups` (TD-11): the fallback promise
+    is that a stage-2 exception still serves the deterministic grouping, and
+    that only holds if the input survives the attempt.
+    """
+    pool = list(groups["relevant"])
+    ordered, meta = rerank(pool, phrase, outstanding, model=model)
+    out = dict(groups)
+    out["relevant"] = ordered
+    # `pool` vs meta["reranked"] is the evidence that the cut moved: it is the
+    # size of the set stage 2 chose from, before any display cap.
+    return out, dict(meta, pool=len(pool))

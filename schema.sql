@@ -230,6 +230,16 @@ CREATE TABLE search_request (
 --   ranked          -- both halves trustworthy
 --   topic_uncertain -- buckets are known, the TOPIC is not. Shown, never hidden,
 --                      with "cannot determine -- ask your advisor" on relevance.
+--
+-- result_group -- which labelled set the row was DISPLAYED in. Closure is
+-- expressed as membership rather than as a weight, so the group a row appeared
+-- in is the ranking decision and has to be recorded as such:
+--   relevance        -- fits the phrase (relevance_score >= rank.RELEVANCE_FLOOR)
+--   both             -- the subset of the displayed 'relevance' rows that also
+--                       close an outstanding bucket. OVERLAPS 'relevance' on
+--                       purpose: a course does not stop fitting the phrase
+--                       because it also closes something.
+--   requirement_only -- closes a bucket, below the floor, no claim of fit.
 CREATE TABLE recommendation (
     recommendation_id INTEGER PRIMARY KEY,
     request_id    INTEGER NOT NULL REFERENCES search_request(request_id),
@@ -240,8 +250,13 @@ CREATE TABLE recommendation (
     relevance_score REAL NOT NULL DEFAULT 0,
     flag          TEXT NOT NULL DEFAULT 'ranked'
                   CHECK (flag IN ('ranked', 'topic_uncertain')),
+    result_group  TEXT NOT NULL
+                  CHECK (result_group IN ('relevance', 'both', 'requirement_only')),
     reason        TEXT,                -- one line, shown in the UI
-    UNIQUE (request_id, offering_id)
+    -- result_group is part of the key because 'relevance' and 'both' overlap by
+    -- design. Without it, the first search containing any dual-fit course --
+    -- the happy path -- fails on UNIQUE (request_id, offering_id).
+    UNIQUE (request_id, offering_id, result_group)
 );
 
 -- The gen-ed buckets this recommendation would close. This is the double count

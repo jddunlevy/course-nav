@@ -23,6 +23,11 @@ TERM_LABEL = "Spring 2027"
 # depend on a network round trip.
 RANKER = os.environ.get("NAVIGATOR_RANKER", "auto")
 
+# How many rows per group the page shows. It lives here and not in rank.py on
+# purpose: grouping has to be uncapped so the stage-2 pool is drawn before any
+# display cut, so this cap is applied to what comes BACK from the reranker.
+DISPLAY_LIMIT = 40
+
 app = Flask(__name__)
 _index = None
 
@@ -94,29 +99,48 @@ def _results_page(student_id, viewer_role, advisor_id=None):
     numeric = db.numeric_progress(conn, student_id)
     phrase = (request.args.get("q") or "").strip()
 
-    results = []
+    groups = rank.group_results([])
     matched = True
     meta = {"ranker": "tfidf"}
     if phrase:
         idx = get_index()
-        matched = rank.phrase_matched(idx, phrase)
-        results = rank.rank(idx, outstanding, phrase, limit=40)
+        groups = rank.group_results(rank.rank(idx, outstanding, phrase))
 
         use_llm = RANKER == "llm" or (RANKER == "auto" and rank_llm.available())
-        if use_llm and results:
+        if use_llm and groups["relevant"]:
             try:
-                results, meta = rank_llm.rerank(results, phrase, outstanding)
+                groups, meta = rank_llm.rerank_groups(groups, phrase, outstanding)
             except Exception as e:
-                # Never let the ranker take the page down. TF-IDF order stands.
+                # Never let the ranker take the page down. TF-IDF order stands,
+                # and because rerank_groups() does not mutate its argument the
+                # grouping here is still the full deterministic one.
                 app.logger.warning("LLM rerank failed, using TF-IDF: %s", e)
                 meta = {"ranker": "tfidf", "fallback_from": "llm",
                         "error": type(e).__name__}
+
+        # Cap for DISPLAY only, and only now -- after stage 2 has chosen from
+        # the whole pool. counts stay pre-cap so the page can say how many
+        # exist, not just how many it is showing.
+        groups = dict(groups,
+                      relevant=groups["relevant"][:DISPLAY_LIMIT],
+                      requirement_only=groups["requirement_only"][:DISPLAY_LIMIT])
+        # Group 2 is a badged view of the DISPLAYED group 1, so it is derived
+        # from the capped list and can never hold a row group 1 does not show.
+        groups["both"] = [r for r in groups["relevant"] if r["bucket_score"] > 0]
+
+        # FR15 (D-17). Without this the UI silently degrades to "courses that
+        # close a requirement" when nothing matches, which looks like an answer
+        # but is not one. The old phrase_matched() could not express it:
+        # normalisation divides by the term's own maximum, so the normalised max
+        # is always exactly 1.0 whenever any raw cosine is nonzero.
+        matched = groups["counts"]["relevant"] > 0
+
         actor = conn.execute(
             "SELECT user_id FROM app_user WHERE {} = ?".format(
                 "advisor_id" if viewer_role == "advisor" else "student_id"),
             (advisor_id if viewer_role == "advisor" else student_id,)).fetchone()
         if actor:
-            db.save_search(conn, student_id, actor["user_id"], TERM, phrase, results)
+            db.save_search(conn, student_id, actor["user_id"], TERM, phrase, groups)
 
     recent = conn.execute("""
         SELECT phrase, created_at FROM search_request
@@ -126,10 +150,14 @@ def _results_page(student_id, viewer_role, advisor_id=None):
 
     return render_template(
         "results.html", student=student, outstanding=outstanding,
-        numeric=numeric, phrase=phrase, results=results, recent=recent,
+        numeric=numeric, phrase=phrase, groups=groups, counts=groups["counts"],
+        recent=recent,
         matched=matched, meta=meta, viewer_role=viewer_role, advisor_id=advisor_id,
         term_label=TERM_LABEL,
-        n_uncertain=sum(1 for r in results if r["flag"] == "topic_uncertain"))
+        # Group 3 only. Uncertain rows have relevance forced to 0, so they can
+        # never clear the floor and can never be in group 1 to begin with.
+        n_uncertain=sum(1 for r in groups["requirement_only"]
+                        if r["flag"] == "topic_uncertain"))
 
 
 @app.template_filter("meeting")

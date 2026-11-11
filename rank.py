@@ -1,6 +1,12 @@
 """Ranking: gen-ed bucket closure x phrase relevance (D-19).
 
-Two independent halves, deliberately kept separate:
+Two independent halves, deliberately kept separate -- and, since this revision,
+never blended into the quantity that orders the page. `group_results()` turns
+closure into SET MEMBERSHIP instead of a weight (TD-1), because any single-list
+weighting leaves a constant that re-creates the distortion as soon as the
+catalog or the student's outstanding set changes. The old blend let a course
+closing one bucket at 17% relevance outrank the single most relevant course in
+the whole term. The two halves:
 
   bucket_score     hours this section would close against requirements the
                    student still has outstanding. Comes from Banner attributes,
@@ -14,6 +20,15 @@ Two independent halves, deliberately kept separate:
 TF-IDF is pure Python on purpose: 3,324 courses is small, and it keeps the
 dependency list at Flask alone. If it ranks badly on the test phrases, the
 escalation path is sentence embeddings -- the interface below would not change.
+
+WHAT IS AND IS NOT FILTERED
+---------------------------
+D-21 and D-27 say uncertainty is surfaced, not hidden: `topic_uncertain` zeroes
+relevance but never removes a section or weakens its stated closure. That is not
+the same as "nothing is filtered". A section that closes nothing AND matches
+nothing scores zero and is dropped (`if score <= 0`), and a section below
+RELEVANCE_FLOOR that closes nothing is counted but never listed. Both have
+always been true here; the grouping below just makes them visible.
 """
 
 import math
@@ -85,20 +100,25 @@ class Index:
 W_BUCKET = 1.0
 W_MUST = 1.5        # a must-include bucket (one Literature, one History) is worth more
 W_RELEVANCE = 2.0
-W_BOTH = 0.75       # D-19: closing a requirement AND fitting the phrase ranks first
+W_BOTH = 0.75       # D-19: genuine dual fit, now gated on RELEVANCE_FLOOR
+
+# Also hand-set against the test phrases, not learned. 0.25 is the cut
+# build_reason() already calls "strong match to your phrase", so the floor and
+# the prose cannot disagree. On "climate policy" it admits GY 302 Climatology
+# (0.5912) and excludes BSC 471 Plant Physiology (0.2352) and MLC 362 Applied
+# Linguistics (0.1729). Fragile: BSC 471 clears exclusion by only 0.015 of a
+# relative unit, and relevance is normalised against the term's own best match,
+# so 0.25 of a weak maximum is still weak.
+RELEVANCE_FLOOR = 0.25
 
 
-def phrase_matched(index, phrase):
-    """True if the phrase hit anything at all.
+def rank(index, outstanding, phrase, open_only=True):
+    """Return ranked result dicts, one per course, uncapped.
 
-    Without this the UI silently degrades to "courses that close a requirement"
-    when nothing matches, which looks like an answer but is not one.
+    No `limit`: the display cut belongs to the caller, applied after stage-2
+    reranking (TD-7). Capping here meant the reranker's own MAX_CANDIDATES
+    could never bind, so a buried-but-relevant course never reached stage 2.
     """
-    return max(index.similarity(phrase), default=0.0) > 0
-
-
-def rank(index, outstanding, phrase, limit=40, open_only=True):
-    """Return ranked result dicts. Nothing is ever filtered out for uncertainty."""
     open_buckets = {}
     for req in outstanding:
         if req["satisfied"]:
@@ -136,8 +156,16 @@ def rank(index, outstanding, phrase, limit=40, open_only=True):
         # it does. Bucket closure is untouched -- the section still ranks on it.
         relevance = 0.0 if uncertain else sim
 
+        # ONE canonical quantity gates W_BOTH, decides group membership and
+        # feeds build_reason(). Gating on the unrounded local instead would let
+        # a course at 0.249963 join group 1 while being denied W_BOTH.
+        relevance_score = round(relevance, 4)
+
         score = bucket_score * 1.0 + relevance * W_RELEVANCE
-        if bucket_score > 0 and relevance > 0:
+        # Gated on the floor, not on nonzero relevance: W_BOTH was meant to
+        # reward genuine dual fit (D-19), and one surviving shared TF-IDF token
+        # is not that.
+        if bucket_score > 0 and relevance_score >= RELEVANCE_FLOOR:
             score += W_BOTH
 
         if score <= 0:
@@ -148,13 +176,20 @@ def rank(index, outstanding, phrase, limit=40, open_only=True):
             "offering": o,
             "score": round(score, 4),
             "bucket_score": round(bucket_score, 4),
-            "relevance_score": round(relevance, 4),
+            "relevance_score": relevance_score,
             "flag": "topic_uncertain" if uncertain else "ranked",
             "buckets_closed": closed,
-            "reason": build_reason(o, closed, relevance, uncertain),
+            "reason": build_reason(o, closed, relevance_score, uncertain),
         })
 
-    results.sort(key=lambda r: (-r["score"], r["offering"]["subject"],
+    # The dedup below keeps the FIRST row per course, so this sort chooses which
+    # section represents a course -- and therefore which relevance_score that
+    # course carries into grouping. Keying on -score let the blended number make
+    # that choice silently, which is the same defect one step removed (TD-10).
+    # Invariant: a course enters grouping with its best-matching open section's
+    # relevance, since offering_attribute is per-offering and the schema does not
+    # guarantee the max-relevance section is encountered first.
+    results.sort(key=lambda r: (-r["relevance_score"], r["offering"]["subject"],
                                 r["offering"]["course_number"]))
 
     # One row per COURSE, not per section. A course with five CRNs is one
@@ -169,11 +204,70 @@ def rank(index, outstanding, phrase, limit=40, open_only=True):
             r["other_sections"] = 0
             best[key] = r
             order.append(key)
-    return [best[k] for k in order[:limit]]
+    return [best[k] for k in order]
 
 
-def build_reason(offering, closed, relevance, uncertain):
-    """One line, shown per result. The ERD's `reason` field."""
+def group_results(results):
+    """Partition `rank()`'s output into the four labelled sets (TD-1).
+
+    Returns plain lists and plain counts -- no Flask, no Jinja2 -- because the
+    same shape is the natural input to a conversational refinement loop later.
+
+      relevant          group 1, "fits your interest": relevance at or above the
+                        floor, ordered on RELEVANCE ALONE (TD-4). No bucket
+                        tiebreaker: a bucket key here would re-admit the
+                        distortion this whole change exists to remove, and it is
+                        near-inert anyway (3 of 55 rows tie on "climate policy").
+      both              group 2, left EMPTY here. It is a badged view of the
+                        DISPLAYED group 1, so only the caller can build it, after
+                        reranking and after the display cap (TD-3).
+      requirement_only  group 3: closes something but is below the floor. Ordered
+                        by -bucket_score, then -relevance_score, then
+                        subject/number. must_unmet is NOT a key -- it is already
+                        inside bucket_score via W_MUST, and it is not a field on
+                        this dict. Sub-floor relevance is the second key because
+                        bucket_score is frequently constant across the entire
+                        group (student 1's group 3 is {1.0: 64}); without it the
+                        alphabetical filler this spec calls out as the symptom
+                        would simply relocate to the top of group 3.
+      counts            pre-cap sizes, including `weak_no_closure` -- the fourth
+                        set, 36-41 courses per search, which is counted and
+                        stated but never listed. Named because it exists: the
+                        page total has to reconcile with something.
+
+    The four sets partition `results` exactly: relevant + requirement_only +
+    weak_no_closure == total.
+    """
+    relevant = [r for r in results if r["relevance_score"] >= RELEVANCE_FLOOR]
+
+    requirement_only = sorted(
+        (r for r in results if r["bucket_score"] > 0
+         and r["relevance_score"] < RELEVANCE_FLOOR),
+        key=lambda r: (-r["bucket_score"], -r["relevance_score"],
+                       r["offering"]["subject"], r["offering"]["course_number"]))
+
+    weak_no_closure = sum(1 for r in results if r["bucket_score"] == 0
+                          and 0 < r["relevance_score"] < RELEVANCE_FLOOR)
+
+    return {
+        "relevant": relevant,
+        "both": [],
+        "requirement_only": requirement_only,
+        "counts": {
+            "relevant": len(relevant),
+            "requirement_only": len(requirement_only),
+            "weak_no_closure": weak_no_closure,
+            "total": len(results),
+        },
+    }
+
+
+def build_reason(offering, closed, relevance_score, uncertain):
+    """One line, shown per result. The ERD's `reason` field.
+
+    Takes the SAME rounded relevance_score that gates W_BOTH and decides
+    membership, so the prose and the grouping cannot disagree.
+    """
     parts = []
     if closed:
         names = ", ".join(b["name"] for b in closed)
@@ -186,10 +280,12 @@ def build_reason(offering, closed, relevance, uncertain):
     if uncertain:
         parts.append("topic rotates each term and the catalog description is "
                      "generic -- cannot determine fit, ask your advisor")
-    elif relevance >= 0.25:
+    elif relevance_score >= RELEVANCE_FLOOR:
         parts.append("strong match to your phrase")
-    elif relevance > 0:
-        parts.append("some overlap with your phrase")
+    # Below the floor the reason says NOTHING about the phrase. Such a row can
+    # only reach the page inside group 3, whose heading promises closure and not
+    # topical fit -- which is exactly what lets group 3 sort on sub-floor
+    # relevance without that sort asserting a fit the prose would then deny.
     if offering.get("schedule_type") == "Laboratory":
         parts.append("lab section")
     return "; ".join(parts) if parts else "Offered this term"

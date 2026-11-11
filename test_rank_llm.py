@@ -99,6 +99,31 @@ def main():
     passed &= check("no effort on haiku 4.5",
                     rank_llm._supports_effort("claude-haiku-4-5"), False)
 
+    # 8. rerank_groups reorders group 1 and nothing else. rerank() is stubbed:
+    # the assertion is about the plumbing, and the AC 10 fallback is only true
+    # if the caller's grouping survives a stage-2 call that went wrong.
+    groups = {"relevant": list(CANDIDATES), "both": [],
+              "requirement_only": [fake("10004", "HY", "101", "World History")],
+              "counts": {"relevant": 3, "requirement_only": 1,
+                         "weak_no_closure": 0, "total": 4}}
+    real_rerank = rank_llm.rerank
+    rank_llm.rerank = lambda results, phrase, outstanding, model=None, **kw: (
+        list(reversed(results)), {"ranker": "llm", "reranked": len(results)})
+    try:
+        out, meta = rank_llm.rerank_groups(groups, "ancient philosophy", outstanding)
+    finally:
+        rank_llm.rerank = real_rerank
+    passed &= check("rerank_groups returns a new dict", out is groups, False)
+    passed &= check("rerank_groups reordered group 1",
+                    [r["offering"]["crn"] for r in out["relevant"]],
+                    ["10003", "10002", "10001"])
+    passed &= check("rerank_groups left the input's group 1 alone",
+                    [r["offering"]["crn"] for r in groups["relevant"]],
+                    ["10001", "10002", "10003"])
+    passed &= check("rerank_groups left group 3 untouched",
+                    out["requirement_only"] is groups["requirement_only"], True)
+    passed &= check("rerank_groups reports the pool it drew from", meta["pool"], 3)
+
     print()
     print("ALL PASS" if passed else "FAILURES ABOVE")
     return 0 if passed else 1

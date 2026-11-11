@@ -205,25 +205,37 @@ def advisees(conn, advisor_id):
         (advisor_id,)).fetchall()
 
 
-def save_search(conn, student_id, actor_user_id, term, phrase, results):
-    """Persist one search and its ranked results."""
+# groups dict key -> recommendation.result_group value. Ordered as displayed.
+RESULT_GROUPS = (("relevant", "relevance"), ("both", "both"),
+                 ("requirement_only", "requirement_only"))
+
+
+def save_search(conn, student_id, actor_user_id, term, phrase, groups):
+    """Persist one search and the three displayed result groups.
+
+    `rank` restarts at 1 within each group, because a position only means
+    anything relative to the group it was shown in. A dual-fit course is stored
+    twice -- once as 'relevance', once as 'both' -- which is the overlap the
+    table's UNIQUE (request_id, offering_id, result_group) exists to allow.
+    """
     cur = conn.execute(
         "INSERT INTO search_request (student_id, actor_user_id, term, phrase)"
         " VALUES (?, ?, ?, ?)",
         (student_id, actor_user_id, term, phrase))
     request_id = cur.lastrowid
-    for i, r in enumerate(results, 1):
-        cur = conn.execute("""
-            INSERT INTO recommendation
-                (request_id, offering_id, rank, score, bucket_score,
-                 relevance_score, flag, reason)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (request_id, r["offering_id"], i, r["score"], r["bucket_score"],
-              r["relevance_score"], r["flag"], r["reason"]))
-        rec_id = cur.lastrowid
-        for b in r["buckets_closed"]:
-            conn.execute(
-                "INSERT INTO recommendation_bucket (recommendation_id, bucket_id)"
-                " VALUES (?, ?)", (rec_id, b["bucket_id"]))
+    for key, label in RESULT_GROUPS:
+        for i, r in enumerate(groups.get(key) or [], 1):
+            cur = conn.execute("""
+                INSERT INTO recommendation
+                    (request_id, offering_id, rank, score, bucket_score,
+                     relevance_score, flag, result_group, reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (request_id, r["offering_id"], i, r["score"], r["bucket_score"],
+                  r["relevance_score"], r["flag"], label, r["reason"]))
+            rec_id = cur.lastrowid
+            for b in r["buckets_closed"]:
+                conn.execute(
+                    "INSERT INTO recommendation_bucket (recommendation_id, bucket_id)"
+                    " VALUES (?, ?)", (rec_id, b["bucket_id"]))
     conn.commit()
     return request_id
