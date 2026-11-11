@@ -6,10 +6,10 @@ The documents behind the application. Read them in this order.
 |---|---|
 | [`PRD.md`](PRD.md) | What the product must do. 34 functional and 19 non-functional requirements, each carrying a finding, assumption or decision ID. §9 lists every point where SOW v2.0 went stale |
 | [`Architecture.md`](Architecture.md) | How it is built. Stack, data model, the two-stage ranker, cross-cutting concerns. §7 is **"Not yet built"** — the honest list |
-| [`data-model.md`](data-model.md) | The 14 tables as an ER diagram, generated from `schema.sql` and verified against the live database |
+| [`data-model.md`](data-model.md) | The 14 tables as an ER diagram, generated from `schema.sql`. **Known stale** since November 11, 2026: `recommendation` gained `result_group` and its uniqueness constraint widened. Re-verify once, after sign-in adds its credential column |
 | [`UX Design.md`](UX%20Design.md) | 36 UX requirements and 15 named components, grounded in the screenshots in `../ux/` |
-| [`epics.md`](epics.md) | **The backlog.** 8 epics, 38 stories, pre-sized, every story carrying an implementation status revalidated against the code. Starts with that status table and with the two decisions sprint 1 is waiting on |
-| [`sprint-plan.md`](sprint-plan.md) | Sprint 1: the goal, what is in and out, the sequence, and the decision gate. Five of its six stories cannot start until the owner records a decision |
+| [`epics.md`](epics.md) | **The backlog.** 8 epics, 39 stories, pre-sized, every story carrying an implementation status revalidated against the code. Starts with that status table, then the decisions sprint 1 depends on — **D-33 and D-35 decided, D-36 deferred**, all on November 11, 2026 |
+| [`sprint-plan.md`](sprint-plan.md) | Sprint 1: the goal, what is in and out, the sequence, the risks. **Revision 2** — the gate is open, and two of its six stories are startable today |
 | [`sprint-status.yaml`](sprint-status.yaml) | The machine-readable status of every epic and story, generated from `epics.md` by `bmad-sprint-planning` |
 | [`specs/`](specs/) | Implementation-level tech specs, written per change rather than maintained as a set |
 
@@ -21,18 +21,34 @@ than as a backlog. The project owner promoted it that day. Two things changed wi
 promotion, and nothing was deleted or reworded:
 
 - Every one of the original 32 stories was revalidated against the code at commit `5fb1330` and
-  carries a status — 13 implemented, 10 partial, 9 not started. A status names the file and the
-  symbol it was read from, so it can be checked rather than trusted.
+  carries a status. A status names the file and the symbol it was read from, so it can be checked
+  rather than trusted. **Re-read later the same day** against the landed ranker work at
+  `065d496`: now 11 implemented, 11 partial, 9 not started, 1 superseded.
 - Six stories were added for sprint 1: a credentialed sign-in page, and advisor
   search-by-student. One of the six, a degree-progress indicator, was dropped the same day —
-  see below.
+  see below. **A seventh, Story 3.6, was added** once the ranker's open questions were answered:
+  the separation work landed its logic and not its template, so a search currently renders
+  "0 ranked courses" above fifty-five that matched.
 
-The sign-in feature contradicts something already decided, so it is held at a decision the owner
-has to record: **proposed D-33** — a sign-in page reverses AR16 and the identity-not-security
-reading of D-20. It is not decided in these documents, and is stated in full, with options and
-consequences, in `epics.md`.
+**The decisions sprint 1 depended on were made on November 11, 2026.** `epics.md` states each in
+full, with the options rejected:
 
-A second decision, proposed D-34, asked what a single degree-percent-complete figure may claim.
+- **D-33** — sign-in. A local credential table on `app_user`, verified with stdlib
+  `hashlib.pbkdf2_hmac`; the role picker removed rather than kept as a bypass, with known
+  passwords seeded so the graded demonstration signs in like a real user; `/student/<id>` kept,
+  with an ownership check. Reverses **AR16** and the identity-not-security reading of **D-20**.
+- **D-35** — the ranker's two open questions. Dual fit becomes a badge inside one ranked list
+  rather than a section of its own; the eight uncertain-but-requirement-closing rows surface
+  uncollapsed, so **D-21** is preserved rather than amended; and the requirement-only set is
+  relabelled a browse list, because it turned out to be near phrase-invariant — 488 of a possible
+  488 rows on a phrase that matched nothing at all.
+- **D-36** — chat-led query construction. **Deferred** past sprint 1 to its own design cycle.
+
+**What is still outstanding:** the running-log §6 entries for D-33 and D-35, and the PRD edits
+they imply. The elicitation running log governs over the PRD and is not in this repository, so
+these documents record the decisions without being able to record them *there*.
+
+A further decision, proposed D-34, asked what a single degree-percent-complete figure may claim.
 **It was dropped on November 11, 2026 rather than decided.** `db.numeric_progress` computes the
 depth-study requirement as every credit the student holds against 33 hours, so it reads 482% for
 the seeded senior — four of its four numeric requirements exceed 100% for that student and two of

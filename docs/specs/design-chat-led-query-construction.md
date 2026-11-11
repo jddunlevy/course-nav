@@ -2,18 +2,32 @@
 title: 'Chat-led query construction'
 slug: 'chat-led-query-construction'
 created: '2026-11-11'
-status: 'design-approved'
+status: 'design-approved-deferred'
 kind: 'design'
+deferred: 'Past sprint 1, decided 2026-11-11. Its own design cycle; see the banner below.'
 sub_projects: ['A — chat-led conversation with sidebar filters', 'B — depth study as a typed, mutable record']
 proposed_decision: 'D-36'
-open_questions: ['Q-2 (from the ranker spec)', 'D-36 must be recorded in the elicitation log']
+open_questions: ['D-36 must be recorded in the elicitation log', 'New FRs for the chat, depth-study editing and the filter sidebar']
 depends_on: 'docs/specs/tech-spec-relevance-requirement-separation.md'
 dropped: 'Grad-school prerequisite awareness — no prerequisite data exists'
 ---
 
 # Design: Chat-led query construction
 
-**Created:** 2026-11-11 · **Status:** design approved, not yet specced for implementation
+**Created:** 2026-11-11 · **Status:** design approved, **deferred past sprint 1**, not yet
+specced for implementation
+
+> **Deferred, 2026-11-11.** The owner deferred D-36 past sprint 1. The reasoning: the result
+> page is broken today — Tasks 10–11 of the ranker spec did not land with Tasks 1–9, so a search
+> renders "0 ranked courses" above 55 matches — and **Story 3.6** fixes that within sprint 1,
+> where this design is a cycle of its own that would leave the page lying meanwhile. It needs
+> new FRs for the chat, depth-study editing and the filter sidebar before it is ready for dev.
+>
+> **Decision 3 was partly pre-adopted, deliberately.** The ranker spec's **Q-1 was answered
+> (b)** — one ranked list, dual fit as badges, no separate section — which is exactly where
+> decision 3 lands. So Story 3.6 builds that shape once and this design will not rebuild it. The
+> part this design still moves is the **requirement-only browse list**: Q-2 was answered (b)
+> and that list stays on the results page for now, labelled as not ranked against the phrase.
 
 This covers sub-projects **A** (chat-led conversation, filters moved to a sidebar,
 requirements no longer the organising frame) and **B** (depth study as a typed, mutable
@@ -285,11 +299,16 @@ adds further states.
 - **D-36 must be recorded in the elicitation log** before any of this is built. The log
   governs over the PRD and the ERD and is not in this repository.
 - **D-22's scope amendment** (decision 2) rides along with D-36.
-- **Q-2 from the ranker spec is still open** and this design does not resolve it: whether
-  collapsing requirement-only results behind a `<details>` weakens D-21's "shown, never
-  hidden" past what is acceptable. Note that decision 3 changes its shape — with
-  requirements as filter state there may be no collapsed group to argue about — so Q-2
-  should be re-read against this design before being answered.
+- ~~**Q-2 from the ranker spec is still open**~~ **Q-2 was answered 2026-11-11, option (b)**,
+  and it was re-read against this design first, as this note asked. The answer: the
+  uncertain-and-closing rows — measured at **8, phrase-independent** — surface uncollapsed, so
+  **D-21 is preserved rather than amended** and the rest of the requirement-only set collapses
+  behind a `<details>`. The hypothesis in this note turned out to be half right: decision 3
+  does change the collapsed group's shape, but it does not make the question moot, because
+  uncertain rows have relevance forced to 0 and so can never appear in a relevance-ordered
+  list however the requirements are presented. They need a surface of their own either way —
+  which is a constraint this design must honour when it moves the browse list into filter
+  state. **Q-1 was answered (b)**, which this design's decision 3 already assumed.
 - **Decision-ID collision, resolved here.** Sprint 1 claimed D-33 (sign-in reverses
   AR16) and D-34 (what a degree-percent figure may claim). The ranker spec had also used
   D-33 for its FR11/FR12 amendment; it is renumbered **D-35**. This design is **D-36**.
@@ -303,9 +322,11 @@ adds further states.
 
 ## Dependencies
 
-- **`docs/specs/tech-spec-relevance-requirement-separation.md` must land first.** This
-  design renders the grouped result structure that spec produces, and decision 3 resolves
-  that spec's Q-1. Tasks 10-11 of that spec are the template work this design then builds
-  on.
+- **`docs/specs/tech-spec-relevance-requirement-separation.md` must land first.** Tasks 1–9,
+  12–14 **landed** at `065d496` and `434c9cd`. **Tasks 10–11 have not**, and are now
+  **Story 3.6** in sprint 1 — the template work this design then builds on. Decision 3 no
+  longer "resolves that spec's Q-1": Q-1 was answered independently on 2026-11-11, in decision
+  3's favour, so Story 3.6 builds the single-list-with-badges shape and this design inherits
+  it rather than introducing it.
 - No new packages beyond the optional `anthropic>=1.0` already present.
 - No database migration.

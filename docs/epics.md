@@ -37,7 +37,11 @@ comes from source, not from data.
 | **Partial** | The capability exists but at least one named acceptance criterion is not met |
 | **Not started** | No code implements it |
 
-13 implemented, 10 partial, 9 not started.
+11 implemented, 11 partial, 9 not started, 1 superseded — 32 stories, after the November 11
+re-read below. At commit `5fb1330` it was 13 implemented, 10 partial, 9 not started: 3.5 and 8.6
+moved from implemented to partial, and 3.2 from partial to superseded. The seven sprint-1
+additions (1.5–1.7, 3.6, 7.6–7.8) are not in this table, which is a revalidation of what existed
+before the sprint.
 
 | Story | Status | Evidence |
 |---|---|---|
@@ -48,15 +52,15 @@ comes from source, not from data.
 | 2.1 Which requirements a section would close | **Implemented** | `rank.rank` intersects a section's buckets with the student's open buckets; `results.html` `.r-badges` names each, `.badge.must` for must-include, and a flagged section keeps its badges. Reachable only through a phrase search, because 2.3 does not exist |
 | 2.2 Why a section was tagged as it was | **Not started** | `offering_attribute.attribute` holds the Banner text and nothing surfaces it. `schedule_type` is printed as metadata, but no badge cites the attribute or the schedule type that produced it, and the lab rule is displayed only, never applied to closure |
 | 2.3 Browse the whole offering list with tags | **Not started** | `app.py` `_results_page` leaves `results` empty when `phrase` is falsy, and `results.html` renders nothing in that case. No pagination over 9,621 sections |
-| 3.1 Search by a free-text interest phrase | **Partial** | `rank.Index` is built once in the `_index` global; phrase is in the query string so results are linkable; every candidate comes from `db.offerings_for_term`. AC 4 fails: an empty phrase raises no error but shows no browse list either, which depends on 2.3. The under-2-second budget (NFR1) is unmeasured |
-| 3.2 Rank requirement-closing matches above either alone | **Partial** | `rank.W_BOTH = 0.75` is added when both halves are non-zero, which is D-19 as a bonus and not as an ordering guarantee: `score = bucket_score + 2.0 × relevance (+0.75)`, so a section with `bucket_score` 4.0 and no phrase match outranks one at 1.0 + 2×0.5 + 0.75 = 2.75 that does both. AC 1 is therefore not guaranteed. The story's own sizing said this: "the weighting is hand-set and correctness is a judgment call, not a test" |
-| 3.3 Surface sections closing two or more requirements | **Partial** | `rank.rank` keys `open_buckets` by `bucket_id` taking the higher weight, so a bucket shared by two requirements (World Language, in `CORE_HUM` and `UNIV_WLANG`) is credited once. But a section carrying two buckets of the **same** requirement — Humanities and Literature, both in `CORE_HUM` — adds both weights, so AC 2 fails and AR12's double count is live on the scoring side. AC 1's "both requirements are named" also fails: badges name buckets, not requirements |
+| 3.1 Search by a free-text interest phrase | **Partial** *(re-read Nov 11)* | `rank.Index` is built once in the `_index` global; phrase is in the query string so results are linkable; every candidate comes from `db.offerings_for_term`. AC 4 fails: an empty phrase raises no error but shows no browse list either, which depends on 2.3. The under-2-second budget (NFR1) is unmeasured. **AC 1–3 now also fail on screen**: ranking runs and the template renders none of it — Story 3.6 |
+| 3.2 Rank requirement-closing matches above either alone | **Superseded by D-35** *(re-read Nov 11)* | Not a defect any more — a story whose premise was withdrawn. The landed ranker deliberately makes relevance order **independent** of closure (group 1 sorts on `-relevance_score` alone), and dual fit is expressed as grouping rather than rank; under Q-1 it becomes a badge on a group-1 row. The old finding, kept for the record: `W_BOTH = 0.75` was a bonus and not an ordering guarantee, so `bucket_score` 4.0 with no phrase match outranked 1.0 + 2×0.5 + 0.75 = 2.75 doing both. Its acceptance criteria are not reachable under D-35 and are not carried forward |
+| 3.3 Surface sections closing two or more requirements | **Partial** *(re-read Nov 11)* | The double-credit defect is **unchanged by the landed work** — Tasks 1–9 never touched it. `rank.rank` keys `open_buckets` by `bucket_id` taking the higher weight, so a bucket shared by two requirements (World Language, in `CORE_HUM` and `UNIV_WLANG`) is credited once; but a section carrying two buckets of the **same** requirement — Humanities and Literature, both in `CORE_HUM` — adds both weights, so AC 2 fails and AR12's double count is live on the scoring side. AC 1's "both requirements are named" also fails: badges name buckets, not requirements. **Narrowed by D-35**: FR12's "surfaced above" now holds only inside the requirement-only set, which Q-1's answer relabels as a browse list. Routed to the cleanup pass |
 | 3.4 Collapse duplicate sections to one course | **Implemented** | `rank.rank` keeps the best row per `(subject, course_number)` and counts the rest into `other_sections`; `results.html` prints "+N more section(s)" and omits it at zero |
-| 3.5 Be told plainly when the phrase matched nothing | **Implemented** | `rank.phrase_matched`; `results.html` `.callout.gap` states that what follows is ranked on requirements only, not on the phrase, and suggests no replacement vocabulary (D-17) |
+| 3.5 Be told plainly when the phrase matched nothing | **Partial** *(re-read Nov 11)* | The detection **improved** and the rendering **broke**. `rank.phrase_matched` is deleted; `app.py:136` now sets `matched = groups["counts"]["relevant"] > 0`, which is the stronger FR15 test the spec intended — it fires when nothing clears `RELEVANCE_FLOOR` rather than when nothing scored above zero. But `results.html:195`'s "Nothing matched" empty state sits inside the dead `{% if results %}` branch, so it renders on **every** search, including ones that matched 55 courses. The callout's own copy is correct and unchanged (D-17, no replacement vocabulary). Fixed by Story 3.6 |
 | 4.1 Guarantee every recommendation is a real offered section | **Implemented** | `rank_llm._validate` drops any CRN not in the input set, counts the drops, de-duplicates, and appends every candidate the model omitted; `results.html` `.provenance` prints the discarded count. A malformed body raises in `json.loads` and `app.py` falls back. Asserted by `test_rank_llm.py` cases 1–4 |
-| 4.2 Reorder candidates by relevance and say why | **Partial** | `rank_llm.rerank` is complete and `reason_source = "llm"` is recorded in `_validate` — and then never read: `results.html` prints `r.reason` with no per-result "model-produced" label, so UX-DR36 and NFR16 are unmet at the result level, only at the page level. AR19 still holds, so the "ancient philosophy above Germanic Mythology" criterion is unverified |
+| 4.2 Reorder candidates by relevance and say why | **Partial** *(re-read Nov 11)* | `rank_llm.rerank` is complete, `rank_llm.rerank_groups` now wraps it without mutating its argument, and the pool it draws is group 1 **before** the display cap — so the spec's defect 2 is closed and TD-7's 80 can finally bind. Unchanged: `reason_source = "llm"` is recorded in `_validate` and never read, and `results.html` prints `r.reason` with no per-result "model-produced" label, so UX-DR36 and NFR16 are unmet at the result level and met only at the page level. AR19 still holds, so the "ancient philosophy above Germanic Mythology" criterion is unverified |
 | 4.3 Keep my personal data off the wire | **Implemented** | `rank_llm.build_prompt` sends the phrase, the open bucket names and public catalog text. `test_rank_llm.py` case 6 asserts no name, email, classification or depth-study label appears, and that no identifier field is labelled into the prompt — so a later addition fails the test, which is what the story asked for |
-| 4.4 Degrade to deterministic ranking rather than failing | **Implemented** | `app.py` catches every exception from `rerank`, logs at warning with `type(e).__name__`, and sets `fallback_from`; `results.html` states which ordering was served. `rank_llm.available()` returns False with no import or credential, so the call is never attempted |
+| 4.4 Degrade to deterministic ranking rather than failing | **Implemented** *(re-read Nov 11)* | Holds, and is now stronger. `app.py:112-123` catches every exception from `rerank_groups`, logs at warning with `type(e).__name__`, and sets `fallback_from`; because `rerank_groups` returns a new dict rather than mutating, the deterministic grouping is intact in the except branch — the spec's AC 10. `results.html:123-127` still states which ordering was served, and `rank_llm.available()` returns False with no import or credential, so the call is never attempted |
 | 5.1 Show rotating-topic sections with the topic flagged | **Partial** | `ingest.mark_topic_uncertain` requires both a special-topics section and a generic or missing description, so Legends is correctly not flagged, and `results.html` renders "Cannot determine the topic — ask your advisor". AC 4 fails: `GENERIC_DESC_PATTERNS` expands to "varie"/"varies" and never matches "vary", and no pattern matches "subject matter varies" — AR18, 14 of 259 courses |
 | 5.2 Keep requirement closure trustworthy when the topic is not | **Implemented** | `rank.rank` sets `relevance = 0.0` when `topic_uncertain` and leaves `bucket_score` untouched; the badges render with no hedging and the flag sits below them. The only residual risk is the 40-row display cut, not a blend |
 | 6.1 Load the term's seminar themes from the course booklet | **Not started** | No loader, no `nc_seminar_theme` table. `reference/nc-seminar-themes-202710.csv` exists; `reference_data.sql` still carries the D-23 comment saying themes are deliberately absent |
@@ -72,32 +76,48 @@ comes from source, not from data.
 | 8.3 Stop truncating the fields the product exists to surface | **Partial** | No `text-overflow`, no `ellipsis` and no template truncation anywhere; `.r-title` is `flex: 1` with a `min-width`. AC 3 fails: a section with no listed instructor renders nothing — `{%- if o.instructors %}` — rather than an explicit placeholder |
 | 8.4 Give every list a designed empty state | **Implemented** | Four `.empty` blocks: no users seeded, no advisees, no outstanding requirements, nothing matched. **Modified by 7.6** — the advisee search adds a fifth case |
 | 8.5 Reflow rather than scroll sideways | **Partial** | The 640px query reflows `.req-list` to one column and restacks the result index. Two gaps: there is no 1024px breakpoint (UX-DR32 names both), and `.scroll-x` is defined but applied to nothing, so the five-column `.grid` tables on the home and advisor screens are unwrapped |
-| 8.6 Make reranking visible rather than silent | **Implemented** | `.provenance` states the ordering method, the model, and either the discarded count or "0 invented CRNs"; the fallback is stated as a fallback. UX-DR35's "deterministic first, then refine" is not built — search is one blocking page load — but no acceptance criterion on this story asks for it |
+| 8.6 Make reranking visible rather than silent | **Partial** *(re-read Nov 11)* | Regressed, by standing still. `.provenance` (`results.html:123-127`) renders — `meta` is still passed — and still states the ordering method, the model, and either the discarded count or "0 invented CRNs", with the fallback stated as a fallback (FR18 intact). But it now describes an ordering the code no longer performs: it claims one TF-IDF ordering and says nothing about the groups, about closure being applied as grouping rather than score, or about the requirement-only set not being reranked at all (TD-12). The pre-search note at `results.html:101` makes the same stale promise in D-19's words. Visible provenance that misdescribes the mechanism is worse than none. Task 11, in Story 3.6. UX-DR35's "deterministic first, then refine" is still not built and no criterion on this story asks for it |
 
-### A concurrent change that will move six of these statuses
+### The concurrent change landed, except its template work — and the result page now lies
 
-As of this revalidation the working tree carries uncommitted work against
-`docs/specs/tech-spec-relevance-requirement-separation.md`, by another hand, which rewrites
-`rank.py`, `app.py`, `db.py`, `rank_llm.py` and `schema.sql`. It replaces the blended score with
-four labelled result groups, removes `rank.phrase_matched`, removes the `limit` argument from
-`rank.rank`, adds `recommendation.result_group`, and tells the reranker **not** to rank on
-closure. The statuses above describe commit `5fb1330`; when that work lands, **3.2, 3.3, 3.5,
-4.2, 4.4 and 8.6 must be re-read before they are trusted**, and `templates/results.html` has not
-yet been updated to the new `groups` shape. It also touches `app.py` and `results.html`, which
-is where sprint 1 lands — see the sequencing note in `sprint-plan.md`.
+The work against `docs/specs/tech-spec-relevance-requirement-separation.md` landed at commits
+`065d496` and `434c9cd`. Tasks 1–9, 12, 13 and the Task 14 re-measurement are in:
+`rank.RELEVANCE_FLOOR` and `rank.group_results`, `rank_llm.rerank_groups`, `app.py` rewired to a
+`groups` dict, `recommendation.result_group` with `UNIQUE (request_id, offering_id,
+result_group)`, `rank.phrase_matched` deleted, the `limit` argument gone from `rank.rank`, and a
+rebuilt `navigator.db`. `python test_rank.py` and `python test_rank_llm.py` both report all
+assertions passing.
+
+**Tasks 10–11 — the template — did not land, and the result page is wrong today.**
+`app.py:153` passes `groups`; `templates/results.html` still reads `results` at `:111`, `:142`,
+`:143`, `:144` and `:195`. Verified against Jinja2's default `Undefined`: `{{ results|length }}`
+renders `0` and `{% if results %}` takes the else branch, so neither raises. A real search
+therefore renders **"0 ranked courses for ‘climate policy’"** and the "Nothing matched" empty
+state, above a group set holding 55 relevant and 480 requirement-only rows. No traceback, no
+500 — a page that denies its own data. For student 2 it also renders "8 of these rotate their
+topic" about rows that are nowhere on the page.
+
+The statuses above were read at commit `5fb1330`. **Re-read against the landed code on
+November 11 2026**, after the Q-1 and Q-2 answers recorded under D-35 below; the seven rows that
+moved carry their new reading inline and are marked *re-read Nov 11*. Closing the template gap
+is now **Story 3.6**, which is in sprint 1.
 
 ### Claims in the other planning documents that the code does not support
 
 Found while revalidating. None is a story; each is a line in another document that should be
 corrected there, and two of them affect how a story is read.
 
-1. **`Architecture.md` §6: "TF-IDF retrieves the top 80; the model reorders *those*."** At commit
-   `5fb1330` `app.py` calls `rank.rank(..., limit=40)` while `rank_llm.MAX_CANDIDATES` is 80, so
-   the reranker could never be handed more than 40 and the 80 could not bind. The in-flight spec
-   fixes this deliberately and documents it as TD-7.
+1. ~~**`Architecture.md` §6: "TF-IDF retrieves the top 80; the model reorders *those*."**~~
+   **Closed November 11 2026.** At commit `5fb1330` `app.py` called `rank.rank(..., limit=40)`
+   while `rank_llm.MAX_CANDIDATES` was 80, so the reranker could never be handed more than 40
+   and the 80 could not bind. The landed spec removed `limit` from `rank.rank` and caps for
+   display only, after stage 2 has chosen — TD-7. §6 is now accurate.
 2. **`Architecture.md` §7 and Story 1.1 disagree about FR33.** §7 lists "Real role-based sign-in"
    under *Not yet built*; Story 1.1 lists FR33 and FR34 as covered and is sized as having "no
-   credential handling (AR16)". Both cannot be right. Proposed D-33 is what settles it.
+   credential handling (AR16)". Both cannot be right. **D-33 settles it in §7's favour** — the
+   picker was never authentication. Story 1.5 re-covers FR33 with a credential. §7, §2, §9 row 1
+   and `README.md`'s "Not built" list are corrected **when 1.5 lands**, not before: all four are
+   accurate today, and editing them early would make them false in the other direction.
 3. **"Approximate" understates `NC_DEPTH`.** The PRD's open items and `Architecture.md` both call
    the depth-study hour rules approximate. `db.numeric_progress` computes `NC_DEPTH` as the sum
    of *all* the student's completed credits against 33, and `NC_DEPTH_UPPER` as all credits at
@@ -112,10 +132,12 @@ corrected there, and two of them affect how a story is read.
 5. **Two specified components are styled and never rendered.** `static/style.css` defines
    `.chip-status` (`StatusChip`, UX-DR7) and `.source-note` (`SourceNote`, UX-DR10) and no
    template uses either. Reading the stylesheet makes those two look done; they are not on screen.
-6. **`data-model.md` says the 14 tables were "verified against the live database".** That
-   verification could not be repeated here — `navigator.db` was being rebuilt and was not opened
-   — and the in-flight change adds a column to `recommendation`, so the diagram will need
-   re-verifying rather than trusting.
+6. **`data-model.md` says the 14 tables were "verified against the live database".** The
+   `recommendation` column landed, so the diagram is now known stale, not merely unverified:
+   `result_group` exists and the table's uniqueness constraint is
+   `UNIQUE (request_id, offering_id, result_group)`. Confirmed against the rebuilt
+   `navigator.db` on November 11 2026. D-33 will add a credential column to `app_user` on top of
+   that, so re-verify once rather than twice — after Story 1.5.
 7. **The setup pipeline is printed in two different orders.** AR2 in this document says
    `ingest.py --reset`, `seed.py`, `descriptions.py`; `README.md` and `Architecture.md` §4 both
    say ingest, descriptions, seed. Each step is idempotent so nothing breaks, but the documents
@@ -123,16 +145,19 @@ corrected there, and two of them affect how a story is read.
 
 ## What sprint 1 adds, supersedes and modifies
 
-Six stories were added on November 11, 2026 for the two features the project owner asked for.
-No original story was deleted or reworded; the effects on them are recorded here and inline.
+Six stories were added on November 11, 2026 for the two features the project owner asked for,
+and a seventh — Story 3.6 — was added the same day once D-35's open questions were answered and
+the template gap it closes became schedulable. No original story was deleted or reworded; the
+effects on them are recorded here and inline.
 
 | New story | Size | Effect on the existing backlog |
 |---|---|---|
-| 1.5 Sign in with a credential | L | **Supersedes** Story 1.1's first two acceptance criteria ("Given the role picker is open") and voids its sizing note, "no credential handling (AR16)". 1.1's header, acting-as and not-found criteria survive unchanged |
+| 1.5 Sign in with a credential | ~~L~~ **M** | **Supersedes** Story 1.1's first two acceptance criteria ("Given the role picker is open") and voids its sizing note, "no credential handling (AR16)". 1.1's header, acting-as and not-found criteria survive unchanged. **Resized L → M** by D-33: a local credential table on stdlib hashing is the M option. **Also removes the picker outright** rather than superseding it — `seed.py` gains known passwords so the four seeded users stay reachable |
 | 1.6 Scope every student view to the signed-in user | M | **Modifies** Story 7.2 — the advisor-for-student view needs an ownership check it does not have — and closes the hole that `/student/<id>` is readable by anyone who can type a number |
 | 1.7 Sign out and end the session | S | New. Nothing existing covers ending a session, because nothing existing starts one |
 | 7.6 Find an advisee by name | M | **Modifies** Story 7.1: the advisee list becomes the no-query state of a search rather than a screen of its own. **Modifies** Story 8.4 — a fourth empty-state variant, "no advisee matched", against UX-DR18's stated three |
-| 7.7 See what each advisee is working on | S | New. Reads `student.depth_study_label` and `search_request.phrase`, both of which exist and neither of which reaches the advisor screen |
+| 7.7 See what each advisee is working on | S | New. Reads `student.depth_study_label` and `search_request.phrase`, both of which exist and neither of which reaches the advisor screen. **Precedes 7.6**, not the reverse — it builds the row component 7.6 reuses |
+| 3.6 Render the result groups | M | New, November 11 2026. Closes Tasks 10–11 of the ranker spec, which did not land with Tasks 1–9. **Fixes** Story 3.5's rendering and Story 8.6's stale provenance, and is what makes Stories 3.1–3.4 visible again. Carries the Q-1 and Q-2 answers |
 | ~~7.8 Show a degree-progress indicator~~ | — | **Dropped November 11 2026**, the day it was added. `db.numeric_progress` reads 482% for the seeded senior, so there was no honest figure to render. Nothing else depended on it |
 
 Also touched, and not re-sized here: Stories 8.1 and 8.2 gain a surface. A sign-in form is new
@@ -140,16 +165,22 @@ UI that needs the token set, a visible focus indicator and a labelled input, and
 first screen every user sees — which makes the 8.2 criteria about tab order and focus visible on
 the one page that cannot be skipped.
 
-## Open decisions this sprint depends on
+## The decisions this sprint depends on
 
 Both sprint-1 features contradict something already decided, and this project's convention is
 that an open decision is surfaced and routed to the owner rather than guessed. The elicitation
 running log is the source of truth and holds **D-01 → D-32**; it is not in this repository. A
 feature that contradicts one of those needs a **new decision ID recorded by Jaxon in the running
-log §6**. The IDs below are proposed numbers for that record, not decisions — nothing here is
-decided, and neither story ships until the matching entry exists.
+log §6**.
 
-### Proposed D-33 — a formal sign-in page, replacing the role picker
+**Status, November 11 2026: D-33 and D-35 were answered by the owner and are recorded below.
+D-36 was deferred.** What follows is therefore the decision content, not a list of open
+questions — but the IDs are still *proposed numbers*, because the entries do not yet exist in
+the running log, which this repository cannot write to. **The log entries remain outstanding.**
+Until they exist the numbering is provisional and may be renumbered when written; the decisions
+themselves are made, and the stories below are sized and sequenced against them.
+
+### D-33 — a formal sign-in page, replacing the role picker · **DECIDED November 11 2026**
 
 **What is being reversed, plainly.** **AR16** states "No auth provider is in scope. The role
 picker stands in for authentication; the role split is what matters for the demonstration."
@@ -164,37 +195,114 @@ security, and `schema.sql` records the reading inline on `app_user`: "No auth pr
 reversed** — it already reads "A user signs in as either a student or an advisor, and sees the
 view for that role." What changes is what "signs in" means.
 
-**The design questions this raises. They are not answered here.**
+**The four design questions, as decided by the owner on November 11 2026.**
 
-1. **Which identity provider?** UA single sign-on is the only one a real deployment could use,
-   and **AR15** says there is no deployment — the application runs on localhost:5000, where an
-   SSO redirect cannot complete without a client registered with the university. The
-   alternatives are a local credential table or one shared demo passphrase. The three are
-   different stories: roughly L, M and S.
-2. **Where do credentials live?** `app_user` has `username` and no password column. Adding one
-   makes `navigator.db` a secret-bearing file, and `Architecture.md` §2 currently sells SQLite
-   as "survives being emailed". It also adds a hashing dependency to a stack whose only hard
-   dependency is Flask (**AR1**). Choose SSO and the question disappears.
-3. **Does the seeded-user picker survive for grading and demo?** `seed.py` creates one advisor
-   and three students (**D-24**) and the graded demonstration needs all four reachable. A demo
-   bypass left in the shipped code is a second, unauthenticated door, which weakens the thing
-   the story exists for. Removing it, keeping it, or gating it on an environment variable are
-   three different claims to make in the final presentation.
-4. **What happens to `/student/<id>`?** Today anyone can read any student's completed coursework
-   by typing a number, and **NFR11** says that is education-record data to which FERPA applies.
-   Either the pattern stays and gains an ownership check (Story 1.6), or it is replaced by a
-   `/me` route plus `/advisor/student/<id>`, which rewrites every link and changes **UX-DR22**:
-   a shareable result URL only works if the recipient is permitted to open it — an advisor is,
-   a classmate is not, and a signed-out link becomes a redirect to sign-in.
-5. **Session mechanism and secret.** A Flask session needs a `SECRET_KEY`, which is a new `.env`
-   key under **AR14**, and `app.py` currently runs `app.run(debug=True)` — the debugger would be
-   served alongside a login form.
-6. **The PRD's own evidence rule.** No FR covers a credential; FR33 covers the role split. By
-   the PRD's rule — "a requirement with no ID is an opinion and does not belong here" — this
-   feature owes a new FR carrying the new decision ID once it is recorded.
+1. **Which identity provider? → A local credential table.** A password hash column on
+   `app_user`, verified with the standard library's `hashlib.pbkdf2_hmac`. This is the option
+   that is actually demonstrable: **AR15** stands, the application still runs on
+   localhost:5000, and a UA single-sign-on redirect could not complete there without a client
+   registered with the university. Story 1.5 is therefore **M**, not L.
 
-**If it is not decided:** Stories 1.5, 1.6 and 1.7 cannot be sized or started, and Story 7.6's
-"my advisees" has no definition to be scoped against.
+   One correction to how this question was framed above: it claimed a local credential table
+   "adds a hashing dependency to a stack whose only hard dependency is Flask (**AR1**)". It does
+   not. `hashlib.pbkdf2_hmac` and `hashlib.scrypt` are standard library, so the credential store
+   costs **no new package** and AR1 survives intact. That materially cheapened this option, and
+   it is why M beat S here.
+
+2. **Where do credentials live? → In `navigator.db`**, as a consequence of (1). This makes the
+   database a secret-bearing file, which **falsifies `Architecture.md` §2's claim that SQLite
+   "survives being emailed"**. That sentence must go when Story 1.5 lands — it is not a wording
+   preference, it is a security claim that stops being true.
+
+3. **Does the seeded-user picker survive? → No. It is removed.** `seed.py` gives the one advisor
+   and three students (**D-24**) known passwords, and the graded demonstration signs in the way
+   a real user would. All four stay reachable, and the shipped code has exactly one door — no
+   environment-gated bypass to explain in the final presentation. `README.md` gains the demo
+   logins when 1.5 lands.
+
+4. **What happens to `/student/<id>`? → The pattern stays and gains an ownership check.**
+   Story 1.6 rejects requests where the signed-in user neither owns nor advises that student.
+   No link rewriting, and **UX-DR22**'s shareable result URL keeps working on the terms it was
+   written for: an advisor opening a student's link is permitted, a classmate is not, and a
+   signed-out link becomes a redirect to sign-in. The `/me` + `/advisor/student/<id>` alternative
+   was rejected as rewriting every link in four templates for a structural gain.
+
+**Two consequences that follow mechanically, and were not put to the owner as choices.**
+
+- **Session secret, and the debugger.** A Flask session needs a `SECRET_KEY`, a new `.env` key
+  under **AR14**. `app.py` currently runs `app.run(debug=True)`: the Werkzeug debugger executes
+  arbitrary code through the browser, and serving it alongside a login form is not a trade-off
+  to weigh. It goes off. Story 1.5's last acceptance criterion already refuses to boot on a
+  default secret.
+- **The PRD owes one FR.** No FR covers a credential; FR33 covers the role split. By the PRD's
+  own rule — "a requirement with no ID is an opinion and does not belong here" — this feature
+  needs a new FR carrying D-33. `bmad-edit-prd` is the tool; it is not done here, because the
+  PRD is governed by the running log and the log entry does not exist yet.
+
+**What is still outstanding:** the **running-log §6 entry for D-33**. The decision is made and
+Stories 1.5–1.7 are sized and sequenced against it, but the log is the source of truth and is
+not in this repository. Jaxon writes it.
+
+### D-35 — the ranker's two open questions · **DECIDED November 11 2026**
+
+Full statement in `docs/specs/tech-spec-relevance-requirement-separation.md`, whose Q-1 and Q-2
+these answer. Recorded here because the decisions amend **FR11** and **FR12**, which live in
+this document.
+
+**Q-1 — does the dual-fit group warrant top billing? → No. Badges inside the relevant list.**
+There is no separate dual-fit section. A course that both fits the phrase and closes an
+outstanding requirement is a row in the relevant list carrying a badge naming what it closes.
+The measurement decided this: across the three seeded students on "climate policy" the dual-fit
+set holds **1, 8 and 5 rows**. A top-billed section holding one row oversells FR11. Two further
+gains: it is where `design-chat-led-query-construction.md` decision 3 lands anyway, so deferring
+D-36 costs no rework on this part; and with one `<ol>` the dual-rank-number problem disappears —
+`.results { counter-reset: r }` would otherwise have printed two different rank numbers for one
+course on one page.
+
+**Q-2 — does collapsing the requirement-only group weaken D-21? → Partly, so the uncertain rows
+come out of the collapse.** Sections flagged `topic_uncertain` have relevance forced to 0, so
+they can *only* ever land in the requirement-only group — a plain `<details>` would hide
+precisely the rows **D-21** ("shown, never hidden") was written to protect. Measured before
+deciding: the uncertain-and-closing set is **exactly 8 rows for students 2 and 3, and 0 for
+student 1**, and it is phrase-independent. Eight rows surface uncollapsed in their own block;
+the remaining ~470 collapse behind a summary stating both the shown and the true count.
+**D-21 needs no amendment.** This also fixes a live defect: the callout at
+`results.html:135-137` says "8 of these rotate their topic" today about rows that are nowhere on
+the page.
+
+**A finding that came out of the measurement, and changes how the group is labelled.** The
+requirement-only set is **nearly phrase-invariant** — for student 2 it is 480 rows on "climate
+policy", 480 on "storytelling", 478 on "medieval poetry" and **488 on "rockets and propulsion"**,
+against a ceiling of 488. It is not a response to the phrase; it is the complete set of
+everything that closes an outstanding bucket, minus the few promoted into the relevant list. So
+it is **relabelled as a browse list** — "Courses that close your outstanding requirements", with
+no reference to the phrase and an explicit statement that it is not ranked against what was
+typed. Moving it off the result page entirely is where D-36 sends it; that waits for D-36.
+
+**The FR amendments this records.**
+
+- **FR11** keeps its intent (**D-19**, **F-41**) and loses its mechanism. Dual fit is shown as a
+  badge, not as a rank position. "Rank above" becomes "is marked, in place".
+- **FR12** is narrowed close to retirement. It already held only inside the requirement-only
+  group after the separation; that group is now labelled a browse list, so FR12 survives only
+  inside a list that is not a search result. Say so plainly rather than letting it stand on a
+  technicality.
+- **FR15** (**D-17**) is strengthened, as the spec intended: the callout fires when nothing
+  clears `RELEVANCE_FLOOR` rather than when nothing scored above zero. Already in the code at
+  `app.py:136`; Story 3.6 makes it render.
+
+**Still outstanding:** the **running-log §6 entry for D-35**, and the PRD edits for FR11, FR12
+and FR15. Not done here, for the same reason as D-33.
+
+### Deferred — D-36, chat-led query construction
+
+`docs/specs/design-chat-led-query-construction.md` is **deferred past sprint 1**, decided
+November 11 2026. It becomes its own design cycle with its own FRs for the chat, depth-study
+editing and the filter sidebar. The reasoning: the result page is broken today, and Story 3.6
+fixes it in one sprint, where D-36 is a design cycle that would leave the page lying meanwhile.
+Q-1's answer deliberately pre-adopts D-36 decision 3's shape for the dual-fit group, so that
+part of Story 3.6 will not be rebuilt. The requirement-only browse list is the part D-36 will
+move.
 
 ### Dropped — the degree-percent-complete indicator
 
@@ -255,11 +363,11 @@ is what **D-17**, **D-27** and **D-31** exist to refuse.
 - FR8: A student's completed coursework is loaded into the system and drives what counts as outstanding. (**D-24**, **F-19**)
 - FR9: A student or advisor can enter a free-text interest phrase; no fixed taxonomy of topics or careers exists. (**D-22**, resolves **Q-24**)
 - FR10: The system ranks only sections actually offered in the modelled term. (**D-16**, **F-26**)
-- FR11: Sections that close an outstanding requirement **and** match the phrase rank above sections doing either alone. (**D-19**, **F-41**)
-- FR12: Sections closing two or more outstanding requirements are surfaced above sections closing one. (**D-11**, **F-14**, **A-05**)
+- FR11: Sections that close an outstanding requirement **and** match the phrase rank above sections doing either alone. (**D-19**, **F-41**) — **amended by D-35**: the intent stands, the mechanism does not. Dual fit is shown as a badge on a relevant-list row, not as a rank position. Read as "is marked, in place".
+- FR12: Sections closing two or more outstanding requirements are surfaced above sections closing one. (**D-11**, **F-14**, **A-05**) — **narrowed by D-35, close to retirement**: this ordering now holds only inside the requirement-only set, which D-35 relabels as a browse list. It survives only in a list that is not a search result.
 - FR13: Results are deduplicated by course, with the number of additional sections stated. (prototype measurement: up to 30 rows per course)
 - FR14: A student can browse the full offering list with requirement tags shown and no phrase entered. (**D-04**, **F-01**, **F-02**)
-- FR15: A student is told when their phrase matched nothing, rather than being shown an arbitrary ranking. (**D-17**)
+- FR15: A student is told when their phrase matched nothing, rather than being shown an arbitrary ranking. (**D-17**) — **strengthened by D-35**: the test is now "nothing clears `RELEVANCE_FLOOR`" rather than "nothing scored above zero". In the code at `app.py:136`; renders with Story 3.6.
 - FR16: A second-stage reranker reorders the retrieved candidate set by relevance to the phrase. (**D-22**, **A-04**)
 - FR17: The reranker may only reorder sections it was given. It cannot introduce a section. (**D-16**, **F-26**)
 - FR18: Every section identifier the reranker returns is validated against the input set; anything not in it is discarded and the discarded count is reported. (**D-16**)
@@ -329,11 +437,15 @@ scaffolding story here would be invented work in a graded backlog.
 - AR18: An open defect exists in `ingest.GENERIC_DESC_PATTERNS`: it cannot match "vary" or "subject matter varies", leaving 14 of 259 special-topics courses unflagged. The fix must be title-aware and is a pending team decision, not a patch.
 - AR19: The live LLM path has never run against a real credential. The response schema is unvalidated; the first real call may surface a schema error, which the fallback will catch.
 
-> **AR16 is under reversal.** Sprint 1 replaces the role picker with a credentialed sign-in
-> page, which contradicts AR16 directly and reads on the architecture's "Auth: None —
-> deliberate". It does not ship until the owner records the reversal — see "Open decisions this
-> sprint depends on", proposed D-33. AR15 (no deployment, localhost only) is **not** reversed,
-> and that constrains which identity providers are even reachable.
+> **AR16 is reversed, by D-33, decided November 11 2026.** Sprint 1 replaces the role picker
+> with a credentialed sign-in page — a local credential table on `app_user`, verified with
+> stdlib `hashlib.pbkdf2_hmac` — and the picker is removed rather than kept as a bypass. This
+> contradicts AR16 directly and reads on the architecture's "Auth: None — deliberate", which is
+> corrected when Story 1.5 lands. **AR15 (no deployment, localhost only) is not reversed**, and
+> it is what ruled out university SSO: an SSO redirect cannot complete against localhost:5000
+> without a client registered with the university. **AR1 is not reversed either** — the
+> credential store needs no new package, because the hashing is standard library. The
+> running-log entry for D-33 is still outstanding; see "The decisions this sprint depends on".
 
 ### UX Design Requirements
 
@@ -418,9 +530,12 @@ Every FR maps to exactly one epic. 34 of 34 covered; no FR appears in two epics.
 **Sprint 1 adds no FRs, and that is the point.** Five new stories cover one capability the PRD
 does not state: a credentialed sign-in, since FR33 covers the role split, not a credential. By
 the PRD's own evidence rule — "a requirement with no ID is an opinion and does not belong
-here" — it owes an FR carrying its new decision ID once proposed D-33 is recorded. Until then
-these stories carry the decision gap, not a requirement. A sixth story, 7.8, would have owed a
-second FR for a degree-progress indicator; it was dropped.
+here" — it owes an FR carrying **D-33**. The decision was made on November 11 2026 but the
+running-log entry does not exist yet, and the PRD is governed by that log, so the FR is not
+written here: these stories still carry the gap rather than a requirement. A sixth story, 7.8,
+would have owed a second FR for a degree-progress indicator; it was dropped. **Story 3.6 adds
+none** — it renders FR11, FR12, FR15 and FR18, all of which already exist, three of them as
+amended by **D-35**, which owes PRD edits rather than new IDs.
 
 ### Dependency order
 
@@ -459,11 +574,13 @@ is unknown. This is the inverse question no existing system answers (F-15, D-02)
 
 ### Epic 3: Find courses that fit my interests
 
-A student or advisor types a free-text interest phrase and gets offered sections ranked so
-that closing an outstanding requirement *and* fitting the phrase beats either alone (D-19).
-Double-counting sections surface, duplicate sections collapse to one course, and a phrase that
-matched nothing is stated rather than silently producing an arbitrary order.
-**FRs covered:** FR9, FR10, FR11, FR12, FR13, FR15
+A student or advisor types a free-text interest phrase and gets offered sections ranked on
+topical fit, with what each one closes shown as a badge beside that order rather than folded
+into it (D-19 as amended by **D-35**). Duplicate sections collapse to one course, sections that
+close a requirement without fitting the phrase are offered as a labelled browse list rather than
+as results, and a phrase that matched nothing is stated rather than silently producing an
+arbitrary order.
+**FRs covered:** FR9, FR10, FR11 (amended), FR12 (narrowed), FR13, FR15 (strengthened)
 
 ### Epic 4: Trust the AI's ordering  *(core AI feature)*
 
@@ -519,9 +636,11 @@ search, ranking or AI.
 **FRs:** FR3, FR5, FR6, FR7, FR8, FR33, FR34 · **NFRs:** NFR8, NFR9 · **UX-DRs:** UX-DR5, UX-DR6, UX-DR8, UX-DR10, UX-DR19
 
 **Sprint 1 adds Stories 1.5, 1.6 and 1.7** — a credentialed sign-in page in place of the role
-picker, an ownership check on the student routes, and sign-out. They reverse AR16 and are
-blocked on proposed D-33. The epic's title was already "Sign in and see where I stand"; until
-sprint 1 the first half of it was a list of names.
+picker, an ownership check on the student routes, and sign-out. They reverse AR16 under **D-33**,
+decided November 11 2026: a local credential table on `app_user` verified with stdlib
+`hashlib.pbkdf2_hmac`, the picker removed outright, and `/student/<id>` kept with an ownership
+check. The epic's title was already "Sign in and see where I stand"; until sprint 1 the first
+half of it was a list of names. The running-log entry for D-33 is still outstanding.
 
 ### Story 1.1: Enter as a student or an advisor
 
@@ -634,15 +753,16 @@ As a student or an advisor,
 I want to sign in with a credential instead of picking my name off a public list,
 So that my record is reached by proving who I am rather than by knowing a URL.
 
-**MoSCoW:** Must · **Size:** L · **Why:** Uncertain — the provider, the credential store and the fate of the demo picker are one unmade decision, and the size is L, M or S depending on which way it goes.
-**Covers:** FR33 (re-covered — the picker satisfied it without a credential) · **NFRs:** NFR11 · **Architecture:** reverses AR16; adds a config key under AR14 · **UX:** UX-DR5, which gains a signed-out state · **Decisions:** needs **proposed D-33**, not yet recorded
-**Status:** Not started · **Blocked on proposed D-33.** Supersedes the role-picker criteria of Story 1.1.
-**Added:** sprint 1, November 11 2026.
+**MoSCoW:** Must · **Size:** M · **Why:** Complex — a password column, a hash verify, a session and one new template, all of it ordinary; the uncertainty that made this L was the unmade decision, not the work. `hashlib` is standard library, so there is no dependency question left.
+**Covers:** FR33 (re-covered — the picker satisfied it without a credential), and **owes a new FR** carrying D-33 · **NFRs:** NFR11 · **Architecture:** reverses AR16; adds a config key under AR14; **falsifies `Architecture.md` §2's "survives being emailed"** · **UX:** UX-DR5, which gains a signed-out state · **Decisions:** **D-33, decided November 11 2026** — running-log entry still outstanding
+**Status:** **Ready for dev** once the D-33 log entry exists · **Resized L → M** by D-33. Supersedes the role-picker criteria of Story 1.1 and **removes the picker**.
+**Added:** sprint 1, November 11 2026. Resized and unblocked November 11 2026.
 
 **Acceptance Criteria:**
 
-Only the criteria that hold under *every* option in proposed D-33 are written here. Criteria
-naming a provider or a credential store would decide the decision rather than wait for it.
+D-33 is decided, so these now name the provider and the credential store. The first four
+criteria are unchanged from the pre-decision set; the rest were unwritable until the decision
+existed.
 
 **Given** no session
 **When** any route other than the sign-in page is requested
@@ -664,6 +784,30 @@ naming a provider or a credential store would decide the decision rather than wa
 **When** it boots
 **Then** it refuses to start rather than running on a default secret.
 
+**Given** a submitted password
+**When** it is checked against `app_user`
+**Then** it is verified against a stored `hashlib.pbkdf2_hmac` hash with a per-user salt, and no
+plaintext password is written to the database, the logs or the session.
+
+**Given** the application
+**When** its dependencies are inspected
+**Then** `requirements.txt` is unchanged — the hashing is standard library, so AR1 still holds.
+
+**Given** the sign-in page
+**When** the whole application is searched for another way in
+**Then** the role picker no longer exists: `home.html` does not list `app_user`, and there is no
+environment variable, query parameter or debug route that bypasses sign-in.
+
+**Given** a freshly seeded database
+**When** the graded demonstration signs in as the advisor or any of the three students
+**Then** each has a known working password, documented in `README.md`, and all four records are
+reachable without a bypass.
+
+**Given** the application is started
+**When** it serves any request
+**Then** `app.run(debug=True)` is not in force, because the Werkzeug debugger executes arbitrary
+code through the browser and must not be served beside a login form.
+
 ### Story 1.6: Scope every student view to the signed-in user
 
 As a student,
@@ -671,10 +815,14 @@ I want my record reachable only by me and my advisor,
 So that my completed coursework is not readable by anyone who can increment a number in a URL.
 
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — `/student/<id>` and `/advisor/<id>` key on raw record ids, and `_results_page` checks only that the student exists. One route pattern has to serve a student, that student's advisor, and nobody else.
-**Covers:** FR33, FR34 · **NFRs:** NFR11 — completed coursework is education-record data · **Decisions:** D-25 makes "my advisee" the entire authorisation rule
+**Covers:** FR33, FR34 · **NFRs:** NFR11 — completed coursework is education-record data · **Decisions:** D-25 makes "my advisee" the entire authorisation rule; **D-33 keeps the `/student/<id>` pattern** rather than replacing it with `/me` + `/advisor/student/<id>`, so this story is an added check and not a re-routing
 **Depends on:** Story 1.5 — there is no identity to check against until sign-in exists.
-**Status:** Not started · **Blocked on proposed D-33** through Story 1.5.
-**Added:** sprint 1, November 11 2026.
+**Status:** Not started · Unblocked by D-33; startable as soon as 1.5 lands. Size **M** stands — the kept URL pattern is why it did not grow.
+**Added:** sprint 1, November 11 2026. Unblocked November 11 2026.
+
+Under D-33 this story is also what keeps **UX-DR22** honest: a result URL stays shareable, and
+permission rather than obscurity decides who may open it — an advisor may, a classmate may not,
+and a signed-out visitor is redirected to sign-in.
 
 **Acceptance Criteria:**
 
@@ -711,8 +859,8 @@ So that the next person at a shared advising-office machine does not land in my 
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — small, but without it sign-in is a one-way door and the acting-as state has no exit.
 **Covers:** FR33 · **UX:** UX-DR5
 **Depends on:** Story 1.5.
-**Status:** Not started · **Blocked on proposed D-33** through Story 1.5.
-**Added:** sprint 1, November 11 2026.
+**Status:** Not started · Unblocked by D-33; startable as soon as 1.5 lands.
+**Added:** sprint 1, November 11 2026. Unblocked November 11 2026.
 
 **Acceptance Criteria:**
 
@@ -809,10 +957,12 @@ So that the tool informs my own search rather than replacing it.
 
 ## Epic 3: Find courses that fit my interests
 
-A free-text phrase ranks offered sections so that closing a requirement *and* fitting the
-phrase beats either alone.
+A free-text phrase ranks offered sections on topical fit. What a section closes is shown
+alongside that order rather than folded into it — **amended by D-35**, November 11 2026; the
+epic originally read "so that closing a requirement *and* fitting the phrase beats either
+alone", which is FR11's withdrawn mechanism.
 
-**FRs:** FR9, FR10, FR11, FR12, FR13, FR15 · **NFRs:** NFR1, NFR3 · **UX-DRs:** UX-DR11, UX-DR12, UX-DR18, UX-DR22
+**FRs:** FR9, FR10, FR11 (amended), FR12 (narrowed), FR13, FR15 (strengthened) · **NFRs:** NFR1, NFR3 · **UX-DRs:** UX-DR11, UX-DR12, UX-DR16, UX-DR18, UX-DR22 · **Decisions:** D-19, D-21, D-35
 
 ### Story 3.1: Search by a free-text interest phrase
 
@@ -925,6 +1075,98 @@ So that I do not read an arbitrary ordering as a recommendation.
 **Given** a phrase matching nothing
 **When** the message renders
 **Then** it suggests no replacement vocabulary, because students report being unable to describe what fits.
+
+### Story 3.6: Render the result groups
+
+As a student or an advisor,
+I want the page to show the courses the ranker actually found,
+So that I am not told "0 ranked courses" above fifty-five that matched.
+
+**MoSCoW:** Must · **Size:** M · **Why:** Complex — not the Jinja2, which is ordinary, but the honesty of the copy. Three sets have to be labelled for what they are, one of them is a browse list masquerading as a search result, and every count on the page can be either pre-cap or post-cap and must say which.
+**Covers:** FR11 (as amended), FR12 (as narrowed), FR15 (as strengthened), FR18 · **UX:** UX-DR11, UX-DR16, UX-DR18 — this adds two variants to its stated three — UX-DR34 · **Decisions:** D-17, D-19, **D-21** — Q-2's answer is what keeps it, **D-35**
+**Implements:** Tasks 10 and 11, and AC 1–4, 7 and 11, of
+`docs/specs/tech-spec-relevance-requirement-separation.md`. Tasks 1–9, 12–14 landed at `065d496`.
+**Depends on:** nothing. The ranker, the grouping, the reranker and the persistence are all in.
+**Status:** **Ready for dev.** One of two sprint-1 stories startable today, with Story 7.7.
+**Added:** sprint 1, November 11 2026, once D-35 answered Q-1 and Q-2 and unblocked Tasks 10–11.
+
+**Why this is a story and not untracked repair.** It is the largest gap between this document
+and the code, and the sprint's definition of done says `sprint-status.yaml` matches the code. An
+untracked fix would leave the ranker spec's two unchecked boxes as the only record that the
+result page does not work.
+
+**Acceptance Criteria:**
+
+**Given** a phrase that matched courses
+**When** the page renders
+**Then** the heading states the number of relevant courses found, and no reference to `results`
+survives anywhere in the template — the count at `:111`, the guard at `:142`, the loop at `:144`
+and the empty state at `:195` all read from `groups`.
+
+**Given** student 1 and "climate policy" with `NAVIGATOR_RANKER=tfidf`
+**When** the relevant list renders
+**Then** it leads with PSC 664 Public Policy Analysis, and neither BSC 471 (0.2352) nor MLC 362
+(0.1729) appears in it.
+
+**Given** a course that both fits the phrase and closes an outstanding requirement
+**When** its row renders
+**Then** it is a row in the relevant list carrying a badge naming what it closes — there is no
+separate dual-fit section (Q-1), and the course is never printed twice with two rank numbers.
+
+**Given** student 1 and "storytelling" with `NAVIGATOR_RANKER=tfidf`
+**When** the relevant list renders
+**Then** its rows are in non-increasing `relevance_score` order, the score shown is
+`relevance_score` and not `score`, and AAST 300, AAST 352, AMS 345, ANT 411 and ANT 412 — all
+`relevance_score == 0.00` — appear nowhere in it.
+
+**Given** a student with sections flagged `topic_uncertain` that close an outstanding bucket
+**When** the page renders
+**Then** those rows are shown uncollapsed in their own block with their closure stated and the
+flag visible — 8 rows for students 2 and 3, 0 for student 1 — so D-21's "shown, never hidden"
+holds without amendment.
+
+**Given** the uncertainty callout
+**When** it renders
+**Then** it says "these" only about rows visible on the page, and it is absent when the count is
+zero. It must not read "8 of these rotate their topic" above a collapsed or empty block, which
+is what it does today.
+
+**Given** the requirement-only set
+**When** it renders
+**Then** it is headed as courses that close outstanding requirements, carries no reference to
+the phrase, and states explicitly that it is not ranked against what was typed — because it is
+near phrase-invariant: 480 rows for student 2 on "climate policy" and 480 on "storytelling",
+478 on "medieval poetry", 488 on "rockets and propulsion", against a ceiling of 488.
+
+**Given** the requirement-only set is capped for display
+**When** its summary renders
+**Then** it states both the number shown and `counts["requirement_only"]`, and does not present
+them as equal when they differ — 40 against 480 for student 2.
+
+**Given** a search for "rockets and propulsion", for which nothing clears `RELEVANCE_FLOOR`
+**When** the page renders
+**Then** the FR15 callout is shown, the relevant list renders its own empty state, and no
+requirement-only row is presented as a result for the phrase.
+
+**Given** any search
+**When** `counts["weak_no_closure"]` is non-zero
+**Then** that number is stated and those rows are not listed.
+
+**Given** the provenance line
+**When** it renders
+**Then** it says that ordering within the relevant list is topical only, that closure is applied
+as grouping and badging rather than as score, and that the requirement-only set was not reranked
+(TD-12). The dropped-CRN count (FR18) reads exactly as it does today.
+
+**Given** the pre-search note at `results.html:101`
+**When** it renders
+**Then** it no longer promises D-19's single-list ordering, which the code stopped doing at
+`065d496`.
+
+**Given** the relevant list is empty, or the uncertain block is empty
+**When** the page renders
+**Then** each has its own designed empty state (UX-DR34), taking UX-DR18 from three variants to
+five — a component-contract change this story owns.
 
 ---
 
@@ -1340,8 +1582,8 @@ So that I can open the right student during an appointment instead of reading th
 
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — the advisee list is one flat table today; the search has to stay scoped to the signed-in advisor's own advisees and share one row component with the unsearched list, or the two will diverge.
 **Covers:** FR28 — extends it from a list to a search · **UX:** UX-DR19, UX-DR18 (a fourth variant), UX-DR22 — the query lives in the query string, as the phrase search's does
-**Depends on:** Stories 1.5 and 1.6 — "my advisees" is not a defined set without a signed-in advisor.
-**Status:** Not started · Modifies Story 7.1, which becomes the no-query state. Adds a variant to Story 8.4.
+**Depends on:** Stories 1.5 and 1.6 for its third and fifth criteria — "my advisees" is not a defined set without a signed-in advisor — and on **Story 7.7** for the row component. 7.7 is built first.
+**Status:** Not started · Startable before Lane A at a stated cost: scoped to the advisor id in the route, which is what the application does today, the search works, but the **third criterion** (a non-advisee must not appear, and nothing may reveal they exist) cannot be met without a session. Starting early means writing that criterion into the status table as **unmet**, not ticking it. Lane A closes it. Modifies Story 7.1, which becomes the no-query state. Adds a variant to Story 8.4.
 **Added:** sprint 1, November 11 2026.
 
 **Acceptance Criteria:**
@@ -1380,9 +1622,13 @@ So that I recognise the right student and know what they are pursuing before ope
 
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — both fields already exist (`student.depth_study_label`, `search_request.phrase`) and neither is on the advisor screen. The care is in labelling them as the student's own words rather than as a system judgment (D-22).
 **Covers:** FR28 · **UX:** UX-DR19 · **Decisions:** D-22 — the depth study is a free-text working label and ranking never reads it; D-26 — nothing is approved before the third-year review · **Evidence:** F-04
-**Depends on:** Story 7.6.
-**Status:** Not started.
-**Added:** sprint 1, November 11 2026.
+**Depends on:** nothing. **Depended on by Story 7.6**, which reuses the row component this story builds.
+**Status:** **Ready for dev** — the only sprint-1 story with no decision dependency at all.
+**Added:** sprint 1, November 11 2026. Dependency direction corrected November 11 2026: this
+story previously read "Depends on: Story 7.6", which inverted it. Both fields already exist
+(`student.depth_study_label`, `search_request.phrase`) and neither reaches the advisor screen,
+so putting them on the **existing** advisee row delivers half of feature 2 with no dependency on
+any decision — and builds the row that 7.6 then searches.
 
 **Acceptance Criteria:**
 

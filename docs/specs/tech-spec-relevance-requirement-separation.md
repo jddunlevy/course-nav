@@ -3,15 +3,23 @@ title: 'Separate pure relevance from requirement-weighted relevance in the ranke
 slug: 'relevance-requirement-separation'
 created: '2026-11-11'
 revised: '2026-11-11'
-status: 'review'
-stepsCompleted: [1, 2, 3, 4]
-revision: 2
+status: 'in-progress'
+stepsCompleted: [1, 2, 3, 4, 5]
+revision: 3
 revision_note: >
-  Revised against 25 adversarial-review findings (3 Critical, 6 High), all of which
-  were independently verified against the code and the live database before acceptance.
-  Two findings were product decisions rather than defects and are carried as OPEN
-  QUESTIONS Q-1 and Q-2 for Jaxon, not resolved here.
-open_questions: ['Q-1 (was F15)', 'Q-2 (was F12)', 'D-35 (PRD amendment)']
+  Revision 3, 2026-11-11. Tasks 1-9, 12, 13 and the Task 14 re-measurement have LANDED
+  at commits 065d496 and 434c9cd; both test files report all assertions passing. Tasks
+  10-11 (the template) did NOT land, so the result page currently renders "0 ranked
+  courses" above a populated group set -- see the note under Tasks. Q-1 and Q-2 were
+  ANSWERED by the owner on 2026-11-11 and Tasks 10-11 are unblocked; the answers are
+  recorded in place below, and AC 2, AC 3 and AC 11 were rewritten to match them. The
+  remaining template work is tracked as Story 3.6 in docs/epics.md, in sprint 1.
+open_questions: ['D-35 (running-log entry and PRD amendment -- still outstanding)']
+answered_questions:
+  - 'Q-1 answered 2026-11-11: option (b), badges inside group 1; no group-2 section'
+  - 'Q-2 answered 2026-11-11: option (b), the 8 uncertain-and-closing rows surface uncollapsed'
+  - 'Group 3 relabelled a browse list (new finding: it is near phrase-invariant)'
+  - 'D-36 (chat-led query construction) deferred past sprint 1'
 tech_stack:
   - 'Python 3.14'
   - 'Flask (server-rendered Jinja2)'
@@ -44,14 +52,28 @@ test_patterns:
 
 **Created:** 2026-11-11 · **Revised:** 2026-11-11 (revision 2)
 
-> **Revision 2 note.** Revision 1 was reviewed adversarially and did not survive it.
-> Three of its defects were Critical: a floor predicate that was a mathematical no-op, a
-> persistence design that violated a `UNIQUE` constraint and would have 500'd on the
-> happy path, and a task sequence that did not actually fix the truncation defect the
+> **Revision 3 note, 2026-11-11.** **Tasks 1–9, 12, 13 and the Task 14 re-measurement
+> have landed** at commits `065d496` and `434c9cd`; `python test_rank.py` and
+> `python test_rank_llm.py` both report all assertions passing. **Tasks 10–11 did not
+> land**, and because Jinja2's default `Undefined` renders `{{ results|length }}` as `0`
+> rather than raising, the result page currently shows "0 ranked courses" and "Nothing
+> matched" above 55 relevant and 480 requirement-only rows. That is now **Story 3.6** in
+> `docs/epics.md`, in sprint 1.
+>
+> **Q-1 and Q-2 are answered** — by the owner, 2026-11-11 — and Tasks 10–11 are
+> unblocked. The answers are recorded in place in the section below, and AC 2, AC 3 and
+> AC 11 were rewritten against them. One new finding came out of measuring Q-2 and is
+> recorded there too: **group 3 is near phrase-invariant**, so it is relabelled as a
+> browse list rather than presented as a result set. `D-36`
+> (`design-chat-led-query-construction.md`) was **deferred** past sprint 1; Q-1's answer
+> deliberately matches its decision 3, so that part of the template will not be rebuilt.
+>
+> **Revision 2 note, kept.** Revision 1 was reviewed adversarially and did not survive
+> it. Three of its defects were Critical: a floor predicate that was a mathematical
+> no-op, a persistence design that violated a `UNIQUE` constraint and would have 500'd on
+> the happy path, and a task sequence that did not actually fix the truncation defect the
 > spec exists to fix. Every finding was verified against the code and the live database
-> before being accepted. Revision 2 addresses all of them. Two were product decisions
-> rather than defects and are carried below as **Q-1** and **Q-2**, unresolved, for
-> Jaxon.
+> before being accepted. Revision 2 addressed all of them.
 
 ## Overview
 
@@ -223,10 +245,12 @@ Stop blending. Produce labelled result sets from one uncapped retrieval pass, an
 - Amending FR11/FR12 in `docs/PRD.md`. This spec *requires* that amendment but must not
   make it; see Open Questions.
 
-## Open Questions — must be answered before this is ready for dev
+## Answered Questions — decided 2026-11-11, Tasks 10–11 unblocked
 
-These are product decisions, not implementation choices. Both were raised by the
-adversarial review and are deliberately left open.
+These were product decisions, not implementation choices, and both were raised by the
+adversarial review. **The owner answered both on 2026-11-11.** The original statements are
+kept — a decision is only legible beside the alternatives it rejected — and each now carries
+its answer and the evidence the answer turned on.
 
 ### Q-1 — Does group 2 warrant top billing when it holds 1 to 8 rows?
 
@@ -251,7 +275,32 @@ it.
 useful answer; (b) group 2 becomes badges inside group 1 and no separate list exists;
 (c) group 2 renders as a section only above a threshold count, badges below it.
 
-**Blocks:** Tasks 10, 11 and AC 2. Does not block Tasks 1-9.
+### ✅ Q-1 ANSWERED 2026-11-11 — option (b): badges inside group 1, no section
+
+There is no group-2 section. A dual-fit course is a **group-1 row carrying a badge** naming
+what it closes.
+
+**What decided it.** The table above: 1, 8 and 5 rows across the three seeded students. A
+top-billed section holding one row oversells FR11 — the measurement reframed the problem, as
+the question says, and the answer follows the reframing rather than the original design.
+
+**Three consequences, all of them simplifications.**
+
+1. `design-chat-led-query-construction.md` decision 3 lands in the same place — one ranked
+   list, closure as badges — so **deferring D-36 costs no rework on this part** of Tasks
+   10–11.
+2. The `.results { counter-reset: r }` problem **disappears**. With one `<ol>` there is no
+   way for a dual-fit course to print two different rank numbers on one page, so Task 10's
+   note about deciding how the card presents that is void.
+3. **Group 2's empty state is void too.** There is no group 2 to be empty, so Task 10's list
+   of needed empty states drops from three to two: group 1 (the FR15 case) and the uncertain
+   block from Q-2.
+
+`groups["both"]` **stays in the data** — `app.py:129` derives it and `db.save_search` persists
+`result_group = 'both'`, which is what makes the dual-fit set queryable later. It simply has no
+section of its own on the page. AC 2 is rewritten accordingly.
+
+**Blocks:** nothing. Tasks 10 and 11 are unblocked.
 
 ### Q-2 — Does collapsing group 3 weaken D-21 past what is acceptable?
 
@@ -269,7 +318,64 @@ for any phrase. Students 2 and 3 do surface them.
 (b) uncertain-but-requirement-closing sections are surfaced uncollapsed in their own
 block; (c) group 3 renders uncollapsed with its own internal cap.
 
-**Blocks:** Task 10, Task 11, AC 11. Does not block Tasks 1-9.
+### ✅ Q-2 ANSWERED 2026-11-11 — option (b): the uncertain rows come out of the collapse
+
+The **uncertain-and-closing rows surface uncollapsed in their own block**; the rest of group 3
+collapses behind a `<details>` whose summary states both the shown and the true count.
+**D-21 is not amended** — it keeps "shown, never hidden" exactly as written.
+
+**What decided it: the set is 8 rows.** Measured 2026-11-11 against the rebuilt database, per
+student, over five phrases:
+
+| Student | Group 3 total | **Uncertain and closing** |
+| --- | --- | --- |
+| 1 Jordan Reyes | 64 | **0** |
+| 2 Rosa Delgado | 480 | **8** |
+| 3 Tobias Lindqvist | 279 | **8** |
+
+And it is **phrase-independent** — necessarily so, since `rank.py` forces uncertain rows'
+relevance to 0, which both keeps them out of group 1 and makes their membership a function of
+closure alone. Option (b) was the expensive-looking answer and turned out to cost one small
+block, which is why the measurement came before the decision rather than after it.
+
+**This also fixes a defect that is live today.** `results.html:135-137` renders "8 of these
+rotate their topic each term. They are shown, never hidden (D-21)" — and for student 2 it
+renders that right now, about rows that are nowhere on the page, because `n_uncertain` is
+computed from `groups["requirement_only"]` while the list below it is dead. Option (a) would
+have left the callout's "these" pointing into a collapsed block; option (b) makes the sentence
+true.
+
+**Still required of Task 11:** the callout must be absent at zero (student 1, every phrase)
+rather than rendering "0 of these".
+
+### A finding from the measurement: group 3 is near phrase-invariant
+
+Not part of either question, found while answering Q-2, and it changes how group 3 may be
+labelled. Group 3's size for student 2, by phrase, against a ceiling of 488 offerings that
+close one of her open buckets:
+
+| Phrase | Group 1 | Group 3 |
+| --- | --- | --- |
+| climate policy | 55 | 480 |
+| storytelling | 15 | 480 |
+| medieval poetry | 20 | 478 |
+| statistics | 31 | 488 |
+| rockets and propulsion | 0 | **488** |
+
+Group 3 is not a response to the phrase. It is the complete set of everything that closes an
+outstanding bucket, minus the handful promoted into group 1 — which is why it grows as group 1
+shrinks and reaches its ceiling exactly when group 1 is empty.
+
+**So it is relabelled as a browse list**: headed "Courses that close your outstanding
+requirements", with no reference to the phrase and an explicit statement that it is not ranked
+against what was typed. This is consistent with what the code already does — Task 5 aligned
+`build_reason()` so that sub-floor rows say nothing about the phrase — the label simply catches
+up with the data. Without it, a search for "rockets and propulsion" shows the FR15 "nothing
+matched" callout directly above 488 courses presented as part of the same result set.
+
+Moving group 3 off the results page entirely is where D-36 sends it. That waits for D-36.
+
+**Blocks:** nothing. Tasks 10 and 11 are unblocked.
 
 ### D-35 — the PRD amendment, for the elicitation log
 
@@ -288,16 +394,27 @@ this spec records what needs deciding and changes nothing:
   surfaced above sections closing one." Under TD-4 this now holds **only in group 3**.
   Revision 1 claimed it survived as a tiebreaker in groups 1 and 2; that claim created a
   direct contradiction with the Solution section and has been withdrawn. FR12 is
-  narrowed, not preserved.
+  narrowed, not preserved. **Revision 3 narrows it further, close to retirement:** group 3
+  is relabelled a browse list, so FR12 now survives only inside a list that is not a
+  search result. Say that plainly in the log rather than letting the FR stand on a
+  technicality.
 - **FR15 (D-17)** is strengthened: the callout fires when nothing clears the floor
   rather than when nothing scored above zero.
-- **D-21** is at stake in Q-2.
+- **D-21 is preserved, not amended.** Q-2 was answered (b): the uncertain-and-closing rows
+  — 8 of them, phrase-independent — surface uncollapsed, so "shown, never hidden" stays
+  literally true and needs no amendment. This is the one thing the log does **not** owe an
+  edit for.
 - `docs/UX Design.md`: **UX-DR12** (`:202`) and **UX-DR16** (`:206`) need amending, and
   **UX-DR18** (`:208`) specifies `EmptyState` with exactly three variants — this design
-  adds two more (group 2 empty, group 3 empty), changing that component contract.
-  **UX-DR34** (`:239`) requires every list to have one. *(Revision 1 cited UX-DR25
-  (`:221`) here, which is about removing text truncation from requirement-bearing
+  takes it to **five**: group 1 empty (the FR15 case) and the uncertain block empty.
+  *(Revision 2 said "group 2 empty, group 3 empty". Q-1 (b) removed group 2's section, so
+  its empty state is void; Q-2 (b) added the uncertain block's. Still two new variants,
+  different two.)* **UX-DR34** (`:239`) requires every list to have one. *(Revision 1 cited
+  UX-DR25 (`:221`) here, which is about removing text truncation from requirement-bearing
   fields, not list length. Wrong citation.)*
+- **A new UX-DR, or an amendment, for the browse-list framing.** The phrase-invariance
+  finding means group 3 must be labelled as not-ranked-against-the-phrase. No existing
+  UX-DR covers a list that sits on a search page without answering the search.
 - `docs/archive/epics - bmad run (not voted).md` Epic 3 stories 3.2 and 3.3 are
   superseded by this spec and should be reconciled when that backlog is promoted.
 
@@ -437,11 +554,20 @@ would attribute uniformly what is mixed.
 
 ## Implementation Plan
 
-Tasks 1-9 are unblocked. Tasks 10-11 depend on Q-1 and Q-2.
+**Status, 2026-11-11.** Tasks 1–9, 12, 13 and 14 **landed** at commits `065d496` and `434c9cd`
+and are ticked below. Tasks 10–11 did **not** land; Q-1 and Q-2 are now answered, so they are
+**unblocked and ready for dev**, tracked as **Story 3.6** in `docs/epics.md`.
+
+> **The result page is wrong until Tasks 10–11 land.** `app.py:153` passes `groups`;
+> `templates/results.html` still reads `results` at `:111`, `:142`, `:143`, `:144` and `:195`.
+> Jinja2's default `Undefined` renders `{{ results|length }}` as `0` and sends
+> `{% if results %}` down the else branch, so nothing raises — the page renders "0 ranked
+> courses for ‘climate policy’" and "Nothing matched" above 55 relevant and 480
+> requirement-only rows. Task 10's own note predicted exactly this; it is now live.
 
 ### Tasks
 
-- [ ] Task 1: Add the relevance floor and gate `W_BOTH` on it
+- [x] Task 1: Add the relevance floor and gate `W_BOTH` on it · **LANDED**
   - File: `rank.py`
   - Action: Add `RELEVANCE_FLOOR = 0.25` beside the weights at `:85-88`, commented as
     hand-set, matching `build_reason()`'s cut, and noting BSC 471 clears exclusion by
@@ -452,14 +578,14 @@ Tasks 1-9 are unblocked. Tasks 10-11 depend on Q-1 and Q-2.
     grouped on the rounded value, so a course at 0.249963 would have joined group 1 while
     being denied `W_BOTH`. Leave `W_BUCKET`, `W_MUST`, `W_RELEVANCE` unchanged.
 
-- [ ] Task 2: Sort by relevance before the course-level dedup
+- [x] Task 2: Sort by relevance before the course-level dedup · **LANDED**
   - File: `rank.py`
   - Action: Change the sort at `:157-158` to key on `-relevance_score`, then
     `subject`/`course_number`. Comment that the dedup below picks the representative
     section, so this sort decides which section's relevance the course carries.
   - Notes: TD-10. `-score` must stop being the dedup's ordering input.
 
-- [ ] Task 3: Remove `limit` from `rank()` and extract grouping
+- [x] Task 3: Remove `limit` from `rank()` and extract grouping · **LANDED**
   - File: `rank.py`
   - Action: Drop `limit` from the `rank()` signature at `:100` and the `order[:limit]`
     cut at `:172`. Add `group_results(results)` returning
@@ -474,14 +600,14 @@ Tasks 1-9 are unblocked. Tasks 10-11 depend on Q-1 and Q-2.
     for students 1 / 2 / 3. It is counted and stated, never listed. Keep
     `group_results()` free of Flask and Jinja2 imports.
 
-- [ ] Task 4: Delete `phrase_matched()`
+- [x] Task 4: Delete `phrase_matched()` · **LANDED**
   - File: `rank.py`
   - Action: Remove `phrase_matched()` (`:91-97`) entirely and its caller at `app.py:102`.
   - Notes: TD-9 — it cannot express the floor condition. Its docstring's reasoning
     ("without this the UI silently degrades...") is still correct and should move to the
     `counts["relevant"]` check in `app.py`.
 
-- [ ] Task 5: Align `build_reason()` with the floor
+- [x] Task 5: Align `build_reason()` with the floor · **LANDED**
   - File: `rank.py`
   - Action: Replace the literal `0.25` at `:189` with `RELEVANCE_FLOOR`, comparing the
     same rounded quantity. At or above the floor reads as a match; below it the reason
@@ -489,14 +615,14 @@ Tasks 1-9 are unblocked. Tasks 10-11 depend on Q-1 and Q-2.
   - Notes: Group 3 reasons therefore say nothing about the phrase, which is what lets
     TD-5 use sub-floor relevance as a sort key without asserting fit.
 
-- [ ] Task 6: Remove the dual-fit instruction from the stage-2 prompt
+- [x] Task 6: Remove the dual-fit instruction from the stage-2 prompt · **LANDED**
   - File: `rank_llm.py`
   - Action: Delete line `:90`. Change the ranking framing to fit against the interest
     phrase. Keep every hard rule at `:92-101` and all of `build_prompt()`.
   - Notes: TD-6. Do not touch `_validate()` (`:177`) — it is the F-26 / D-16 guard and
     the whole safety argument for using a model here.
 
-- [ ] Task 7: Add `rerank_groups()`
+- [x] Task 7: Add `rerank_groups()` · **LANDED**
   - File: `rank_llm.py`
   - Action: Add `rerank_groups(groups, phrase, outstanding, model=None)`. Pool =
     `groups["relevant"]` uncapped, passed to the existing `rerank()` (which applies
@@ -505,7 +631,7 @@ Tasks 1-9 are unblocked. Tasks 10-11 depend on Q-1 and Q-2.
   - Notes: TD-11 — must not mutate `groups`. `both` is still not built here. `rerank()`
     keeps its current signature.
 
-- [ ] Task 8: Rewire `_results_page()` and apply the display cap
+- [x] Task 8: Rewire `_results_page()` and apply the display cap · **LANDED**
   - File: `app.py`
   - Action: Replace `:102-103` with a single `rank.rank(idx, outstanding, phrase)` call.
     Call `rerank_groups()` inside the existing try/except at `:107-113`. Then apply
@@ -518,7 +644,7 @@ Tasks 1-9 are unblocked. Tasks 10-11 depend on Q-1 and Q-2.
     1's "across groups 1 and 3" was half dead code. The except branch must leave the
     deterministic grouping intact (AC 10).
 
-- [ ] Task 9: Persist the group, and widen the uniqueness constraint
+- [x] Task 9: Persist the group, and widen the uniqueness constraint · **LANDED**
   - File: `schema.sql`, `db.py`
   - Action: Add `result_group TEXT NOT NULL CHECK (result_group IN ('relevance', 'both',
     'requirement_only'))` to `recommendation` (`:233-245`), following the `flag` column's
@@ -536,36 +662,48 @@ Tasks 1-9 are unblocked. Tasks 10-11 depend on Q-1 and Q-2.
     (the order in `README.md:15-17`; `app.py:146-150` lists a different one, a
     pre-existing inconsistency this spec does not fix).
 
-- [ ] Task 10: Render the groups **[BLOCKED on Q-1, Q-2]**
+- [ ] Task 10: Render the groups · **UNBLOCKED — Q-1 (b), Q-2 (b)** · Story 3.6
   - File: `templates/results.html`, `static/style.css`
-  - Action: Replace the `{% if results %}` guard at `:142` and the `<ol class="results">`
-    at `:143` with the group sections. **Also update every other `results` reference:**
-    the count at `:111` and the else-branch empty state at `:195`. Show
-    `relevance_score`, not `score`, at `:151`. Update the pre-search copy at `:101`,
-    which still asserts D-19's single-list promise. Group 3's `<details>` summary states
-    both the number shown and `counts["requirement_only"]`. State
-    `counts["weak_no_closure"]`. Add the Jinja2 component comments; add group heading
-    styles using the existing tokens.
-  - Notes: With Flask's default `Undefined`, a missed `results` reference does **not**
-    raise: `{{ results|length }}` renders `0` and `{% if results %}` takes the else
-    branch — so the page would silently render "0 ranked courses for 'climate policy'"
-    and "Nothing matched" directly above three populated groups. Group 3 is capped, so
-    the summary must not claim it is complete: for student 2 / "climate policy" the true
-    count is 480 against 40 shown. `.results { counter-reset: r }` (`style.css:271-291`)
-    restarts per `<ol>`, so a dual-fit course displays two different rank numbers on one
-    page — decide how the card presents that. Empty states needed for group 1 (the FR15
-    case) and group 2 (honest and useful: nothing that fits also closes anything).
+  - Action: **One `<ol>`, not three.** Replace the `{% if results %}` guard at `:142` and
+    the `<ol class="results">` at `:143` with a single group-1 list, each row carrying a
+    closure badge when `bucket_score > 0` (Q-1 (b) — there is **no** group-2 section).
+    Below it, the **uncertain-and-closing block, uncollapsed**: the rows of
+    `groups["requirement_only"]` whose `flag == "topic_uncertain"`, with closure stated
+    and the flag visible (Q-2 (b)). Below that, the rest of `requirement_only` in a
+    `<details>`, headed as a **browse list** — "Courses that close your outstanding
+    requirements" — with no reference to the phrase and an explicit line saying it is not
+    ranked against what was typed. **Update every other `results` reference:** the count
+    at `:111` and the else-branch empty state at `:195`. Show `relevance_score`, not
+    `score`, at `:151`. Update the pre-search copy at `:101`, which still asserts D-19's
+    single-list promise. The `<details>` summary states both the number shown and
+    `counts["requirement_only"]`. State `counts["weak_no_closure"]`. Add the Jinja2
+    component comments; add heading styles using the existing tokens.
+  - Notes: The silent-`Undefined` warning this note used to carry is **no longer
+    hypothetical — it is the live behaviour**; see the status block above. Group 3 is
+    capped, so the summary must not claim it is complete: for student 2 / "climate policy"
+    the true count is 480 against 40 shown. `.results { counter-reset: r }`
+    (`style.css:271-291`) restarts per `<ol>` — with Q-1 (b) there is only one `<ol>`, so
+    the dual-rank-number problem is **void**. Empty states needed: group 1 (the FR15
+    case) and the uncertain block. **Group 2's empty state is void** along with its
+    section. `groups["both"]` stays in the data and keeps being persisted; it just has no
+    section.
 
-- [ ] Task 11: Update the provenance and uncertainty copy **[BLOCKED on Q-1, Q-2]**
+- [ ] Task 11: Update the provenance and uncertainty copy · **UNBLOCKED — Q-1 (b), Q-2 (b)** · Story 3.6
   - File: `templates/results.html`
-  - Action: Rewrite `RankProvenance` (`:123-127`) to say ordering within groups 1 and 2
-    is topical only, that closure is applied as grouping rather than score, and that
-    group 3 was not reranked (TD-12). Keep the dropped-CRN count (FR18) exactly as it
-    reads. Rewrite the uncertainty callout at `:135-137` so it does not say "these" about
-    rows inside a collapsed block.
-  - Notes: The callout's wording depends on Q-2's answer.
+  - Action: Rewrite `RankProvenance` (`:123-127`) to say that ordering within the relevant
+    list is **topical only**, that closure is applied as **grouping and badging** rather
+    than as score, and that the requirement-only set was **not reranked** (TD-12). Keep
+    the dropped-CRN count (FR18) exactly as it reads. Rewrite the uncertainty callout at
+    `:135-137` to point at the uncollapsed block Q-2 (b) creates — "these" is now true —
+    and make it **absent at zero** rather than rendering "0 of these".
+  - Notes: Under Q-2 (b) the callout's "shown, never hidden (D-21)" becomes literally
+    accurate, so D-21 needs no amendment and the sentence can stand as written. This also
+    closes a live defect: for student 2 the page renders "8 of these rotate their topic"
+    today, about rows that are nowhere on it. `8.6` in `docs/epics.md` is marked Partial
+    on exactly this task — the provenance line currently describes an ordering the code
+    stopped performing at `065d496`.
 
-- [ ] Task 12: Write `test_rank.py`
+- [x] Task 12: Write `test_rank.py` · **LANDED**
   - File: `test_rank.py` (new)
   - Action: Follow `test_rank_llm.py` exactly — module docstring, `fake()`-style fixture
     builders, `check(name, got, want)`, `main()` returning nonzero on failure, runnable
@@ -580,7 +718,7 @@ Tasks 1-9 are unblocked. Tasks 10-11 depend on Q-1 and Q-2.
     `rerank_groups` does not mutate its argument.
   - Notes: Build the index from a small hand-written offering list.
 
-- [ ] Task 13: Check `test_rank_llm.py` still passes
+- [x] Task 13: Check `test_rank_llm.py` still passes · **LANDED**
   - File: `test_rank_llm.py`
   - Action: Run it. Add one case asserting `rerank_groups` returns a new dict with
     `relevant` reordered and `requirement_only` untouched.
@@ -589,7 +727,7 @@ Tasks 1-9 are unblocked. Tasks 10-11 depend on Q-1 and Q-2.
     assertions are independent of `rank()`'s return shape. `rank.rank()` has exactly
     **one** caller, `app.py:103`, not the three revision 1 claimed.
 
-- [ ] Task 14: Re-measure and record the result
+- [x] Task 14: Re-measure and record the result · **LANDED**
   - File: this spec
   - Action: Re-run "climate policy" and "storytelling" for all **three** students and
     append group 1's top five and all four counts beside the before table.
@@ -603,25 +741,53 @@ Tasks 1-9 are unblocked. Tasks 10-11 depend on Q-1 and Q-2.
 AC 1-7 and AC 11-13 are evaluated with `NAVIGATOR_RANKER=tfidf`, so they test this code
 rather than a model's output. AC 8-10 state their own ranker preconditions.
 
+**Verification status, 2026-11-11.** Ticked below: **AC 5, 6 and 13**, asserted by
+`test_rank.py`'s 37 passing cases, and **AC 12**, verified directly against the rebuilt
+`navigator.db` by saving a search for student 2 / "climate policy" that contained 3 dual-fit
+rows in its displayed set — three `result_group` values persisted (`relevance` 40,
+`requirement_only` 40, `both` 3), each ranked from 1 within its group, no `IntegrityError`
+(the write was rolled back afterwards). **The spec's Critical finding is closed.**
+
+Not yet verifiable: **AC 1–4, 7 and 11** all assert what the page renders, and the page does
+not render the groups until Tasks 10–11 land. They are Story 3.6's acceptance criteria. **AC 8–9**
+need a live credential and are still blocked by **AR19**. **AC 10**'s no-mutation half is
+asserted by both test files; its provenance-line half is Task 11.
+
+**AC 2, AC 3 and AC 11 were rewritten** against the Q-1 and Q-2 answers; the superseded wording
+is noted inline.
+
 - [ ] AC 1: Given student 1 and "climate policy" with `NAVIGATOR_RANKER=tfidf`, when the
   page renders, then group 1 leads with PSC 664 Public Policy Analysis, and neither
   BSC 471 (0.2352) nor MLC 362 (0.1729) appears in it.
-- [ ] AC 2: Given the same search, when group 2 renders, then every row in it closes at
-  least one outstanding bucket and also appears in the displayed group 1.
-- [ ] AC 3: Given the same search, when the collapsed group renders, then its summary
-  states both the number shown and the true total (64 for student 1, 480 for student 2),
-  and the two numbers are not presented as equal when they differ.
+- [ ] AC 2: **Rewritten under Q-1 (b).** Given the same search, when a course that both
+  clears `RELEVANCE_FLOOR` and closes an outstanding bucket renders, then it appears
+  **once**, as a group-1 row carrying a badge naming what it closes — and no separate
+  dual-fit section exists on the page. `groups["both"]` is still derived and still
+  persisted with `result_group = 'both'`, so the set stays queryable without being a
+  section. *(Superseded wording: "when group 2 renders, then every row in it closes at
+  least one outstanding bucket and also appears in the displayed group 1.")*
+- [ ] AC 3: **Extended under Q-2 (b) and the phrase-invariance finding.** Given the same
+  search, when the collapsed group renders, then (a) its summary states both the number
+  shown and the true total (64 for student 1, 480 for student 2) and does not present them
+  as equal when they differ; (b) it is headed as a **browse list** — courses that close
+  outstanding requirements — carrying no reference to the phrase and stating that it is not
+  ranked against what was typed; and (c) the uncertain-and-closing rows are **not** inside
+  it, having been surfaced uncollapsed above (AC 11).
 - [ ] AC 4: Given student 1 and "storytelling" with `NAVIGATOR_RANKER=tfidf`, when group
   1 renders, then its rows are in non-increasing `relevance_score` order and AAST 300,
   AAST 352, AMS 345, ANT 411 and ANT 412 — all `relevance_score == 0.00` — appear in
   none of it.
-- [ ] AC 5: Given a fixture course whose `relevance_score` rounds to exactly 0.25, when
-  results are grouped, then it is in `relevant` and is paid `W_BOTH` if it closes a
-  bucket; given 0.2499, it is in neither `relevant` nor paid `W_BOTH`.
-- [ ] AC 6: Given two fixture courses with equal `relevance_score` where one closes two
-  buckets and the other closes none, when group 1 is ordered, then their order is
-  decided by subject/course_number and **not** by `bucket_score`, and removing the
-  bucket data changes no row's position in group 1.
+- [x] AC 5: **PASSING.** Given a fixture course whose `relevance_score` rounds to exactly
+  0.25, when results are grouped, then it is in `relevant` and is paid `W_BOTH` if it
+  closes a bucket; given 0.2499, it is in neither `relevant` nor paid `W_BOTH`. Asserted by
+  `test_rank.py`: "0.2500 is in relevant", "0.2500 is paid W_BOTH", "0.2499 is not in
+  relevant", "W_BOTH not paid below the floor".
+- [x] AC 6: **PASSING.** Given two fixture courses with equal `relevance_score` where one
+  closes two buckets and the other closes none, when group 1 is ordered, then their order
+  is decided by subject/course_number and **not** by `bucket_score`, and removing the
+  bucket data changes no row's position in group 1. Asserted by `test_rank.py`: "closing
+  two buckets does not lift a row in relevant", "removing bucket data changes no position
+  in relevant".
 - [ ] AC 7: Given "rockets and propulsion", for which no course clears the floor, when
   the page renders, then the FR15 callout is shown, group 1 renders its empty state, and
   no requirement-only row is presented as a result for the phrase.
@@ -634,16 +800,29 @@ rather than a model's output. AC 8-10 state their own ranker preconditions.
 - [ ] AC 10: Given the reranker raises any exception, when the page renders, then the
   deterministic grouping is served with every group intact, the `groups` dict passed in
   is unmodified, and the provenance line says the reranker was unavailable.
-- [ ] AC 11: Given student 2 and a section flagged `topic_uncertain` that closes an
-  outstanding bucket, when results are grouped, then it appears in `requirement_only`
-  with its closure stated and its uncertainty flag shown. *(Not verifiable on student 1
-  — zero of the term's 161 uncertain offerings carry that student's single open bucket.)*
-- [ ] AC 12: Given a completed search containing at least one dual-fit course, when it is
-  saved, then no `IntegrityError` is raised and each `recommendation` row carries a
-  `result_group` of `relevance`, `both` or `requirement_only` with `rank` numbered from 1
-  within its group.
-- [ ] AC 13: Given `python test_rank.py` and `python test_rank_llm.py` run with no
-  `ANTHROPIC_API_KEY` set, then both report all assertions passing and exit 0.
+- [ ] AC 11: **Rewritten under Q-2 (b).** Given student 2 and a section flagged
+  `topic_uncertain` that closes an outstanding bucket, when the page renders, then it
+  appears **uncollapsed**, in the uncertain block above the browse list, with its closure
+  stated and its uncertainty flag shown — not behind a `<details>`. The set is 8 rows for
+  students 2 and 3, phrase-independent. And given student 1, for whom the set is empty,
+  the uncertain callout and the block are **absent** rather than rendering "0 of these".
+  *(The grouping half — that such a row lands in `requirement_only` with closure intact —
+  is already asserted by `test_rank.py`: "uncertain with closure lands in
+  requirement_only", "uncertain row keeps its closure intact", "uncertain row keeps its
+  flag". What remains is the rendering.)*
+- [x] AC 12: **PASSING — verified against the rebuilt database, 2026-11-11.** Given a
+  completed search containing at least one dual-fit course, when it is saved, then no
+  `IntegrityError` is raised and each `recommendation` row carries a `result_group` of
+  `relevance`, `both` or `requirement_only` with `rank` numbered from 1 within its group.
+  Verified by saving student 2 / "climate policy", whose displayed set held 3 dual-fit
+  rows: `relevance` 40 rows ranked 1–40, `requirement_only` 40 ranked 1–40, `both` 3
+  ranked 1–3, no exception. The write was rolled back. **This was the spec's Critical
+  finding** — on the old `UNIQUE (request_id, offering_id)` this exact search would have
+  500'd on the happy path, since `db.save_search` is unguarded at its call site.
+- [x] AC 13: **PASSING.** Given `python test_rank.py` and `python test_rank_llm.py` run
+  with no `ANTHROPIC_API_KEY` set, then both report all assertions passing and exit 0. Run
+  2026-11-11: `test_rank.py` 37 cases, `test_rank_llm.py` all cases, both "ALL PASS",
+  both exit 0, neither opens the database.
 
 ## Additional Context
 
