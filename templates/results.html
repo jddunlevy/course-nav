@@ -1,6 +1,72 @@
 {% extends "base.html" %}
 {% block title %}{{ student.name }} &mdash; Course Navigator{% endblock %}
 
+{# 8. CourseResultCard — UX-DR12. Nothing here is truncated (UX-DR25).
+   One macro, three lists (ranked / uncertain / browse). They must not diverge:
+   the same course can appear in the ranked list and the browse list, and two
+   different renderings of it would read as two different courses.
+   `rank_shown` — the ranked list is ordered by relevance, so the number means
+   something there. In the other two it would imply an order that is not a
+   ranking, so it is suppressed via `.results.unranked`.
+   `relevance_shown` — below RELEVANCE_FLOOR the score asserts a topical fit the
+   ranker explicitly declines to claim (D-35, and `build_reason()` says nothing
+   about the phrase for those rows), so it is shown only in the ranked list. #}
+{% macro result_card(r, relevance_shown=True) %}
+  {% set o = r.offering %}
+  <li class="{{ 'uncertain' if r.flag == 'topic_uncertain' }}">
+    <div class="r-head">
+      <span class="r-code">{{ o.subject }} {{ o.course_number }}</span>
+      <span class="r-title">{{ o.title }}</span>
+      {%- if relevance_shown %}
+      <span class="r-score" title="relevance {{ r.relevance_score }} / closure weight {{ r.bucket_score }}">{{ '%.2f'|format(r.relevance_score) }}</span>
+      {%- endif %}
+    </div>
+
+    <div class="r-meta">
+      <span>CRN {{ o.crn }} &middot; sec {{ o.section }}</span>
+      {%- if r.other_sections %}<span class="dim">+{{ r.other_sections }} more section{{ 's' if r.other_sections > 1 }}</span>{% endif %}
+      <span>{{ o.credits|int }} hr</span>
+
+      {# 9. MeetingPattern — UX-DR13, Banner's widget, the one thing it does well #}
+      {% if o.days %}
+        {% set DAYS = [('S','U'),('M','M'),('T','T'),('W','W'),('T','R'),('F','F'),('S','S')] %}
+        <span class="days" role="img" aria-label="Meets {{ o.days }}">
+          {%- for label, code in DAYS %}<i class="{{ 'on' if code in o.days }}">{{ label }}</i>{% endfor -%}
+        </span>
+        <span>{{ o|meeting }}</span>
+      {% else %}
+        <span class="tba">time TBA</span>
+      {% endif %}
+
+      <span>{{ o.schedule_type }}</span>
+      {%- if o.instructors %}<span>{{ o.instructors }}</span>{% endif %}
+
+      {# 10. SeatCounter — UX-DR14, full distinguished by word, not colour #}
+      {%- if o.seats_available is not none %}
+        {% if o.seats_available > 0 %}<span class="seats">{{ o.seats_available }} seats</span>
+        {% else %}<span class="seats full">FULL</span>{% endif %}
+      {% endif %}
+    </div>
+
+    {# 5. RequirementBadge — this is how dual fit is expressed (D-35, Q-1):
+       a badge on the row, not a section of its own. Measured at 1, 8 and 5 rows
+       across the three seeded students, which is why it is not a section. #}
+    {% if r.buckets_closed %}
+    <div class="r-badges">
+      <span class="lead">Closes:</span>
+      {% for b in r.buckets_closed %}<span class="badge {{ 'must' if b.must_unmet }}">{{ b.name }}</span>{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="r-reason">{{ r.reason }}</div>
+
+    {# 11. UncertaintyFlag — UX-DR15. Shown, never hidden; closure above is unaffected (D-27). #}
+    {% if r.flag == 'topic_uncertain' %}
+    <div class="uncertain-flag">Cannot determine the topic &mdash; ask your advisor</div>
+    {% endif %}
+  </li>
+{% endmacro %}
+
 {% block who %}
   {%- if viewer_role == 'advisor' -%}
     <span class="who">advisor view</span>
@@ -97,8 +163,9 @@
   <button type="submit">Rank sections</button>
 </form>
 <p class="note">
-  Type a word or phrase (D-22). Sections that close one of your open requirements
-  <strong>and</strong> fit the phrase rank first (D-19).
+  Type a word or phrase (D-22). Courses are ranked on how well they fit the phrase, and
+  nothing else. What a course would close for you is shown <strong>on</strong> the result
+  rather than mixed into its position (D-19 as amended by D-35).
 </p>
 
 {% if recent %}
@@ -108,95 +175,127 @@
 {% endif %}
 
 {% if phrase %}
-<h2>{{ results|length }} ranked course{{ 's' if results|length != 1 }} for &ldquo;{{ phrase }}&rdquo;</h2>
+{# The three displayed sets. `counts` is pre-cap throughout — it says how many
+   exist, not how many are shown — so every number below states which it is. #}
+{% set uncertain_rows = groups.requirement_only | selectattr('flag', 'equalto', 'topic_uncertain') | list %}
+{% set browse_rows    = groups.requirement_only | rejectattr('flag', 'equalto', 'topic_uncertain') | list %}
+
+<h2>
+  {{ counts.relevant }} course{{ 's' if counts.relevant != 1 }} fit &ldquo;{{ phrase }}&rdquo;
+  {%- if counts.relevant > groups.relevant|length %}
+  <span class="dim">&mdash; showing the top {{ groups.relevant|length }}</span>
+  {%- endif %}
+</h2>
 
 {% if not matched %}
+{# FR15 (D-17), strengthened by D-35: this fires when nothing clears
+   RELEVANCE_FLOOR, not when nothing scored above zero. It suggests no
+   replacement vocabulary — students report being unable to describe what fits. #}
 <div class="callout gap">
-  Nothing offered this term matches &ldquo;{{ phrase }}&rdquo;. What follows is ranked only on
-  the requirements it closes &mdash; not on your phrase. Try different words, and check with
-  your advisor before concluding nothing exists.
+  Nothing offered this term fits &ldquo;{{ phrase }}&rdquo;. Nothing below is a match for it.
+  Try different words, and check with your advisor before concluding nothing exists.
 </div>
 {% endif %}
 
 {# 12. RankProvenance — UX-DR16. FR18: the discarded count is reported,
-   because a user who cannot see that validation ran has no reason to believe it did. #}
+   because a user who cannot see that validation ran has no reason to believe it
+   did. Rewritten for D-35 — the previous wording described a single blended
+   ordering, which the ranker stopped performing. #}
 <p class="provenance">
   {%- if meta.ranker == 'llm' %}
-    Ordered by TF-IDF retrieval, then reranked by {{ meta.model }}.
+    Ranked on fit to your phrase by TF-IDF, then reordered by {{ meta.model }}.
     {% if meta.dropped %}<span class="rejected">{{ meta.dropped }} invented CRN{{ 's' if meta.dropped > 1 }} rejected</span> &mdash; dropped before display.
     {% else %}<span class="verified">0 invented CRNs</span> &mdash; every result validated against the offered set.{% endif %}
   {%- else %}
-    Ordered by TF-IDF only.
+    Ranked on fit to your phrase by TF-IDF only.
     {%- if meta.fallback_from %} <span class="rejected">Reranker unavailable ({{ meta.error }}); deterministic order served (FR21).</span>
     {%- else %} No reranking credential configured.{% endif %}
   {%- endif %}
+  What a course closes for you never moves its position &mdash; it is shown on the course
+  instead. The requirement list further down is not ranked against your phrase and was not
+  reordered at all.
 </p>
 
-{% if n_uncertain %}
-<div class="callout">
-  {{ n_uncertain }} of these rotate their topic each term. They are shown, never hidden (D-21)
-  &mdash; what they count for is known, what they are about is not (D-27).
+{# ---- Ranked: fit to the phrase. One list, dual fit badged in place. ---- #}
+{% if groups.relevant %}
+<ol class="results">
+  {% for r in groups.relevant %}{{ result_card(r) }}{% endfor %}
+</ol>
+{% else %}
+{# EmptyState variant — the FR15 case. Distinct from "no results at all":
+   sections exist, none of them fits the phrase. #}
+<div class="empty">
+  <b>No course fits that phrase</b>
+  Everything offered this term was checked. Nothing came close enough to your words to be
+  called a match, so nothing is listed rather than something arbitrary being listed.
 </div>
 {% endif %}
 
-{% if results %}
-<ol class="results">
-  {% for r in results %}
-  {% set o = r.offering %}
-  <li class="{{ 'uncertain' if r.flag == 'topic_uncertain' }}">
-    {# 8. CourseResultCard — UX-DR12. Nothing here is truncated (UX-DR25). #}
-    <div class="r-head">
-      <span class="r-code">{{ o.subject }} {{ o.course_number }}</span>
-      <span class="r-title">{{ o.title }}</span>
-      <span class="r-score" title="bucket {{ r.bucket_score }} / relevance {{ r.relevance_score }}">{{ '%.2f'|format(r.score) }}</span>
-    </div>
+{% if counts.weak_no_closure %}
+<p class="note dim">
+  {{ counts.weak_no_closure }} further course{{ 's' if counts.weak_no_closure != 1 }} had a
+  faint resemblance to your phrase and would close nothing for you. Not listed &mdash; too
+  weak to call a match, and nothing to gain by taking it.
+</p>
+{% endif %}
 
-    <div class="r-meta">
-      <span>CRN {{ o.crn }} &middot; sec {{ o.section }}</span>
-      {%- if r.other_sections %}<span class="dim">+{{ r.other_sections }} more section{{ 's' if r.other_sections > 1 }}</span>{% endif %}
-      <span>{{ o.credits|int }} hr</span>
-
-      {# 9. MeetingPattern — UX-DR13, Banner's widget, the one thing it does well #}
-      {% if o.days %}
-        {% set DAYS = [('S','U'),('M','M'),('T','T'),('W','W'),('T','R'),('F','F'),('S','S')] %}
-        <span class="days" role="img" aria-label="Meets {{ o.days }}">
-          {%- for label, code in DAYS %}<i class="{{ 'on' if code in o.days }}">{{ label }}</i>{% endfor -%}
-        </span>
-        <span>{{ o|meeting }}</span>
-      {% else %}
-        <span class="tba">time TBA</span>
-      {% endif %}
-
-      <span>{{ o.schedule_type }}</span>
-      {%- if o.instructors %}<span>{{ o.instructors }}</span>{% endif %}
-
-      {# 10. SeatCounter — UX-DR14, full distinguished by word, not colour #}
-      {%- if o.seats_available is not none %}
-        {% if o.seats_available > 0 %}<span class="seats">{{ o.seats_available }} seats</span>
-        {% else %}<span class="seats full">FULL</span>{% endif %}
-      {% endif %}
-    </div>
-
-    {% if r.buckets_closed %}
-    <div class="r-badges">
-      {% for b in r.buckets_closed %}<span class="badge {{ 'must' if b.must_unmet }}">{{ b.name }}</span>{% endfor %}
-    </div>
-    {% endif %}
-
-    <div class="r-reason">{{ r.reason }}</div>
-
-    {# 11. UncertaintyFlag — UX-DR15. Shown, never hidden; closure above is unaffected (D-27). #}
-    {% if r.flag == 'topic_uncertain' %}
-    <div class="uncertain-flag">Cannot determine the topic &mdash; ask your advisor</div>
-    {% endif %}
-  </li>
-  {% endfor %}
+{# ---- Uncertain and requirement-closing: uncollapsed (D-21, D-35 Q-2). ----
+   These can only ever land here: rank.py forces their relevance to 0, so they
+   can never clear the floor and never appear in the ranked list above. Putting
+   them behind a disclosure would hide exactly what D-21 exists to surface. The
+   set is small by measurement — 8 rows for the seeded students who have any. #}
+{% if uncertain_rows %}
+<h3 class="group-head">
+  {{ uncertain_rows|length }} course{{ 's' if uncertain_rows|length != 1 }} that close a
+  requirement, with the topic undetermined
+</h3>
+<div class="callout">
+  What these count for is known. What they are <em>about</em> changes term to term and the
+  catalog text does not say (D-27). They are shown, never hidden (D-21) &mdash; ask your
+  advisor what this term's topic is before you register.
+</div>
+<ol class="results unranked">
+  {% for r in uncertain_rows %}{{ result_card(r, relevance_shown=False) }}{% endfor %}
 </ol>
-{% else %}
+{% endif %}
+
+{# ---- Browse list: everything that closes a requirement. ----
+   Not results. Measured near phrase-invariant — 478 to 488 rows of a possible
+   488 for student 2 whatever is typed, and all 488 on a phrase that matched
+   nothing — so presenting it as an answer to the phrase would be a lie about
+   what it is. Collapsed because it is long, labelled because it is not a search
+   result, and its summary states shown against true (pre-cap) total. #}
+{% if browse_rows %}
+<details class="browse">
+  <summary>
+    Courses that close your outstanding requirements
+    <span class="dim">&mdash;
+      {%- if counts.browse > browse_rows|length %}
+      showing {{ browse_rows|length }} of {{ counts.browse }}
+      {%- else %}
+      all {{ browse_rows|length }}
+      {%- endif %}
+    </span>
+  </summary>
+  <p class="note">
+    <strong>Not ranked against &ldquo;{{ phrase }}&rdquo;.</strong> This is what counts toward
+    something you still owe, in order of how much it closes. It is very nearly the same list
+    whatever you type.
+    {%- if uncertain_rows %} The {{ uncertain_rows|length }} with undetermined topics are
+    listed above, not in here.{% endif %}
+  </p>
+  <ol class="results unranked">
+    {% for r in browse_rows %}{{ result_card(r, relevance_shown=False) }}{% endfor %}
+  </ol>
+</details>
+{% elif not uncertain_rows %}
+{# EmptyState variant — nothing offered closes anything outstanding. For a
+   student with requirements left, this is the FR32 gap case and worth stating. #}
 <div class="empty">
-  <b>Nothing matched</b>
-  Every section shown is actually offered this term, so an empty result means it is not on
-  the schedule &mdash; not that it does not exist.
+  <b>Nothing offered closes an outstanding requirement</b>
+  {% if outstanding %}No section this term counts toward anything you still owe. Take this to
+  your advisor &mdash; it is the kind of gap that changes a plan.
+  {% else %}You have no outstanding requirements for anything to close.{% endif %}
 </div>
 {% endif %}
 {% endif %}

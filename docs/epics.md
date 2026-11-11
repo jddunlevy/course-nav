@@ -1,5 +1,7 @@
 ---
-stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'revalidated-against-code-2026-11-11', 'sprint-1-stories-added-2026-11-11']
+stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation', 'revalidated-against-code-2026-11-11', 'sprint-1-stories-added-2026-11-11', 'hand-edited-2026-11-11-decisions-recorded-and-statuses-re-read']
+# The first four are bmad-create-epics-and-stories steps. The last three are not workflow
+# steps -- they are hand edits, named so the difference is legible.
 inputDocuments:
   - 'docs/PRD.md'
   - 'docs/Architecture.md'
@@ -37,11 +39,13 @@ comes from source, not from data.
 | **Partial** | The capability exists but at least one named acceptance criterion is not met |
 | **Not started** | No code implements it |
 
-11 implemented, 11 partial, 9 not started, 1 superseded — 32 stories, after the November 11
-re-read below. At commit `5fb1330` it was 13 implemented, 10 partial, 9 not started: 3.5 and 8.6
-moved from implemented to partial, and 3.2 from partial to superseded. The seven sprint-1
-additions (1.5–1.7, 3.6, 7.6–7.8) are not in this table, which is a revalidation of what existed
-before the sprint.
+13 implemented, 9 partial, 9 not started, 1 superseded — 32 stories, as of the end of
+November 11 2026. It moved twice that day. At commit `5fb1330`: 13 implemented, 10 partial, 9
+not started. After the re-read against the landed ranker work: 11 / 11 / 9 / 1 — 3.5 and 8.6
+dropped to partial and 3.2 became superseded. **After Story 3.6 was implemented: 13 / 9 / 9 /
+1** — 3.5 and 8.6 came back, because 3.6 is what fixed them. The seven sprint-1 additions
+(1.5–1.7, 3.6, 7.6–7.8) are not in this table, which is a revalidation of what existed before
+the sprint.
 
 | Story | Status | Evidence |
 |---|---|---|
@@ -52,11 +56,11 @@ before the sprint.
 | 2.1 Which requirements a section would close | **Implemented** | `rank.rank` intersects a section's buckets with the student's open buckets; `results.html` `.r-badges` names each, `.badge.must` for must-include, and a flagged section keeps its badges. Reachable only through a phrase search, because 2.3 does not exist |
 | 2.2 Why a section was tagged as it was | **Not started** | `offering_attribute.attribute` holds the Banner text and nothing surfaces it. `schedule_type` is printed as metadata, but no badge cites the attribute or the schedule type that produced it, and the lab rule is displayed only, never applied to closure |
 | 2.3 Browse the whole offering list with tags | **Not started** | `app.py` `_results_page` leaves `results` empty when `phrase` is falsy, and `results.html` renders nothing in that case. No pagination over 9,621 sections |
-| 3.1 Search by a free-text interest phrase | **Partial** *(re-read Nov 11)* | `rank.Index` is built once in the `_index` global; phrase is in the query string so results are linkable; every candidate comes from `db.offerings_for_term`. AC 4 fails: an empty phrase raises no error but shows no browse list either, which depends on 2.3. The under-2-second budget (NFR1) is unmeasured. **AC 1–3 now also fail on screen**: ranking runs and the template renders none of it — Story 3.6 |
+| 3.1 Search by a free-text interest phrase | **Partial** | `rank.Index` is built once in the `_index` global; phrase is in the query string so results are linkable; every candidate comes from `db.offerings_for_term`. AC 1–3 hold again on screen as of Story 3.6. AC 4 still fails: an empty phrase raises no error but shows no browse list either, which depends on 2.3. The under-2-second budget (NFR1) is unmeasured |
 | 3.2 Rank requirement-closing matches above either alone | **Superseded by D-35** *(re-read Nov 11)* | Not a defect any more — a story whose premise was withdrawn. The landed ranker deliberately makes relevance order **independent** of closure (group 1 sorts on `-relevance_score` alone), and dual fit is expressed as grouping rather than rank; under Q-1 it becomes a badge on a group-1 row. The old finding, kept for the record: `W_BOTH = 0.75` was a bonus and not an ordering guarantee, so `bucket_score` 4.0 with no phrase match outranked 1.0 + 2×0.5 + 0.75 = 2.75 doing both. Its acceptance criteria are not reachable under D-35 and are not carried forward |
 | 3.3 Surface sections closing two or more requirements | **Partial** *(re-read Nov 11)* | The double-credit defect is **unchanged by the landed work** — Tasks 1–9 never touched it. `rank.rank` keys `open_buckets` by `bucket_id` taking the higher weight, so a bucket shared by two requirements (World Language, in `CORE_HUM` and `UNIV_WLANG`) is credited once; but a section carrying two buckets of the **same** requirement — Humanities and Literature, both in `CORE_HUM` — adds both weights, so AC 2 fails and AR12's double count is live on the scoring side. AC 1's "both requirements are named" also fails: badges name buckets, not requirements. **Narrowed by D-35**: FR12's "surfaced above" now holds only inside the requirement-only set, which Q-1's answer relabels as a browse list. Routed to the cleanup pass |
 | 3.4 Collapse duplicate sections to one course | **Implemented** | `rank.rank` keeps the best row per `(subject, course_number)` and counts the rest into `other_sections`; `results.html` prints "+N more section(s)" and omits it at zero |
-| 3.5 Be told plainly when the phrase matched nothing | **Partial** *(re-read Nov 11)* | The detection **improved** and the rendering **broke**. `rank.phrase_matched` is deleted; `app.py:136` now sets `matched = groups["counts"]["relevant"] > 0`, which is the stronger FR15 test the spec intended — it fires when nothing clears `RELEVANCE_FLOOR` rather than when nothing scored above zero. But `results.html:195`'s "Nothing matched" empty state sits inside the dead `{% if results %}` branch, so it renders on **every** search, including ones that matched 55 courses. The callout's own copy is correct and unchanged (D-17, no replacement vocabulary). Fixed by Story 3.6 |
+| 3.5 Be told plainly when the phrase matched nothing | **Implemented** *(Story 3.6)* | Stronger than it was. `rank.phrase_matched` is deleted; `app.py:136` sets `matched = groups["counts"]["relevant"] > 0`, which fires when nothing clears `RELEVANCE_FLOOR` rather than when nothing scored above zero. The callout states that nothing fits and that nothing below is a match for the phrase; the ranked list carries its own empty state distinguishing "nothing fits" from "nothing exists"; no replacement vocabulary is suggested (D-17). Verified on "rockets and propulsion", for which nothing clears the floor. **Interim state, now closed:** between `065d496` and Story 3.6 the "Nothing matched" empty state sat in a dead branch and rendered on every search |
 | 4.1 Guarantee every recommendation is a real offered section | **Implemented** | `rank_llm._validate` drops any CRN not in the input set, counts the drops, de-duplicates, and appends every candidate the model omitted; `results.html` `.provenance` prints the discarded count. A malformed body raises in `json.loads` and `app.py` falls back. Asserted by `test_rank_llm.py` cases 1–4 |
 | 4.2 Reorder candidates by relevance and say why | **Partial** *(re-read Nov 11)* | `rank_llm.rerank` is complete, `rank_llm.rerank_groups` now wraps it without mutating its argument, and the pool it draws is group 1 **before** the display cap — so the spec's defect 2 is closed and TD-7's 80 can finally bind. Unchanged: `reason_source = "llm"` is recorded in `_validate` and never read, and `results.html` prints `r.reason` with no per-result "model-produced" label, so UX-DR36 and NFR16 are unmet at the result level and met only at the page level. AR19 still holds, so the "ancient philosophy above Germanic Mythology" criterion is unverified |
 | 4.3 Keep my personal data off the wire | **Implemented** | `rank_llm.build_prompt` sends the phrase, the open bucket names and public catalog text. `test_rank_llm.py` case 6 asserts no name, email, classification or depth-study label appears, and that no identifier field is labelled into the prompt — so a later addition fails the test, which is what the story asked for |
@@ -76,7 +80,7 @@ before the sprint.
 | 8.3 Stop truncating the fields the product exists to surface | **Partial** | No `text-overflow`, no `ellipsis` and no template truncation anywhere; `.r-title` is `flex: 1` with a `min-width`. AC 3 fails: a section with no listed instructor renders nothing — `{%- if o.instructors %}` — rather than an explicit placeholder |
 | 8.4 Give every list a designed empty state | **Implemented** | Four `.empty` blocks: no users seeded, no advisees, no outstanding requirements, nothing matched. **Modified by 7.6** — the advisee search adds a fifth case |
 | 8.5 Reflow rather than scroll sideways | **Partial** | The 640px query reflows `.req-list` to one column and restacks the result index. Two gaps: there is no 1024px breakpoint (UX-DR32 names both), and `.scroll-x` is defined but applied to nothing, so the five-column `.grid` tables on the home and advisor screens are unwrapped |
-| 8.6 Make reranking visible rather than silent | **Partial** *(re-read Nov 11)* | Regressed, by standing still. `.provenance` (`results.html:123-127`) renders — `meta` is still passed — and still states the ordering method, the model, and either the discarded count or "0 invented CRNs", with the fallback stated as a fallback (FR18 intact). But it now describes an ordering the code no longer performs: it claims one TF-IDF ordering and says nothing about the groups, about closure being applied as grouping rather than score, or about the requirement-only set not being reranked at all (TD-12). The pre-search note at `results.html:101` makes the same stale promise in D-19's words. Visible provenance that misdescribes the mechanism is worse than none. Task 11, in Story 3.6. UX-DR35's "deterministic first, then refine" is still not built and no criterion on this story asks for it |
+| 8.6 Make reranking visible rather than silent | **Implemented** *(Story 3.6)* | `.provenance` states the ordering method and the model, keeps the FR18 discarded count or "0 invented CRNs" unchanged, states the fallback as a fallback, and now also states what the ordering **is**: topical fit only, closure badged rather than scored, and the requirement-only set not reordered at all (TD-12). The pre-search note no longer makes D-19's withdrawn single-list promise. **Interim state, now closed:** between `065d496` and Story 3.6 the line described an ordering the code had stopped performing — visible provenance that misdescribes the mechanism is worse than none. UX-DR35's "deterministic first, then refine" is still not built and no criterion on this story asks for it |
 
 ### The concurrent change landed, except its template work — and the result page now lies
 
@@ -94,8 +98,17 @@ assertions passing.
 renders `0` and `{% if results %}` takes the else branch, so neither raises. A real search
 therefore renders **"0 ranked courses for ‘climate policy’"** and the "Nothing matched" empty
 state, above a group set holding 55 relevant and 480 requirement-only rows. No traceback, no
-500 — a page that denies its own data. For student 2 it also renders "8 of these rotate their
-topic" about rows that are nowhere on the page.
+500 — a page that denies its own data.
+
+**A second defect, found while building Story 3.6 and worse than the first.** The display cap
+was deleting the uncertain rows outright. `app.py` capped `requirement_only` at
+`DISPLAY_LIMIT = 40`, and because `rank.py` forces `topic_uncertain` rows' relevance to 0 they
+sort last inside every bucket tier — for student 2 on "climate policy" they sit at positions
+161, 162, 317–319, 406, 414 and 423 of 480. All eight fell outside the cut. `n_uncertain` was
+computed from the same capped list, so it read **0 for every student and the uncertainty callout
+could never fire at all**. So **D-21 was not merely at risk from a collapsed block — it was
+already failing silently**, and no amount of template work could have fixed it: by the time
+Jinja saw the list the rows were gone. The fix is in `app.py`, selecting them before the cap.
 
 The statuses above were read at commit `5fb1330`. **Re-read against the landed code on
 November 11 2026**, after the Q-1 and Q-2 answers recorded under D-35 below; the seven rows that
@@ -1087,8 +1100,20 @@ So that I am not told "0 ranked courses" above fifty-five that matched.
 **Implements:** Tasks 10 and 11, and AC 1–4, 7 and 11, of
 `docs/specs/tech-spec-relevance-requirement-separation.md`. Tasks 1–9, 12–14 landed at `065d496`.
 **Depends on:** nothing. The ranker, the grouping, the reranker and the persistence are all in.
-**Status:** **Ready for dev.** One of two sprint-1 stories startable today, with Story 7.7.
+**Status:** **Implemented November 11 2026 — at review.** `templates/results.html` rewritten
+(one `result_card` macro feeding three lists, so they cannot diverge), `static/style.css`, and
+**`app.py`** — the uncertain rows had to be selected before `DISPLAY_LIMIT`, which this story's
+spec did not anticipate. Verified by 32 assertions against rendered HTML across three students
+and four phrases, with `NAVIGATOR_RANKER=tfidf`.
 **Added:** sprint 1, November 11 2026, once D-35 answered Q-1 and Q-2 and unblocked Tasks 10–11.
+
+**One deviation from the criteria below, stated rather than quietly taken.** The last criterion
+asks for an empty state on the uncertain block. It does not have one: when no uncertain row
+closes anything the block is **absent**, not empty. For student 1 that is every search, and
+rendering "no courses here have undetermined topics" on every page would be noise asserting a
+non-answer. UX-DR18 therefore goes from three variants to **four**, not five — the ranked list's
+FR15 empty state and the browse list's gap state are the two added. The uncertainty callout
+follows the same rule and is absent at zero, which the criterion above does require.
 
 **Why this is a story and not untracked repair.** It is the largest gap between this document
 and the code, and the sprint's definition of done says `sprint-status.yaml` matches the code. An
@@ -1128,8 +1153,10 @@ holds without amendment.
 **Given** the uncertainty callout
 **When** it renders
 **Then** it says "these" only about rows visible on the page, and it is absent when the count is
-zero. It must not read "8 of these rotate their topic" above a collapsed or empty block, which
-is what it does today.
+zero. *(Corrected November 11 2026: an earlier draft of this criterion said the page "does"
+render "8 of these rotate their topic" above an empty block. It does not — `n_uncertain` was
+computed from the capped list and read 0 for every student, so the callout never fired. The
+defect was the opposite and worse: the rows themselves were cut. See the note above.)*
 
 **Given** the requirement-only set
 **When** it renders

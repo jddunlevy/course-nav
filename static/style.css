@@ -290,6 +290,49 @@ a:hover { color: var(--crimson-deep); }
 }
 .results > li.uncertain { border-left: 4px solid var(--unknown); }
 
+/* Story 3.6 / D-35. The ranked list is the only list whose order is a ranking,
+ * so it is the only one that gets numbers. `.unranked` suppresses the counter
+ * on the uncertain and browse lists: a number beside a row implies "1st, 2nd,
+ * 3rd" and neither of those lists means that. Also the reason the three lists
+ * can share one <ol> style without a course picking up two different rank
+ * numbers on one page. */
+.results.unranked > li { padding-left: var(--sp-4); }
+.results.unranked > li::before { content: none; }
+
+/* Group heading — between an h2 and a note in weight. These separate three
+ * lists that answer three different questions, so they have to read as breaks
+ * rather than as decoration. */
+.group-head {
+  font: 600 15px/1.35 var(--sans);
+  color: var(--ink);
+  margin: var(--sp-6) 0 var(--sp-2);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--rule);
+}
+
+/* Browse list (D-35). Sunk rather than raised: it is reference material on a
+ * results page, and it should not compete with the ranked list above it. */
+.browse {
+  margin: var(--sp-6) 0 var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--rule);
+}
+.browse > summary {
+  font: 600 15px/1.35 var(--sans);
+  color: var(--ink);
+  cursor: pointer;
+  padding: var(--sp-1) 0;
+}
+.browse > summary:focus-visible { outline: 2px solid var(--crimson); outline-offset: 2px; }
+.browse > summary .dim { font-weight: 400; font-size: 14px; }
+.browse > .note { margin-top: var(--sp-2); }
+
+.r-badges .lead {
+  font-size: 12px;
+  color: var(--ink-dim);
+  margin-right: var(--sp-1);
+}
+
 .r-head { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
 .r-code { font: 600 13px/1.4 var(--mono); color: var(--crimson); white-space: nowrap; }
 /* No truncation: these are the fields the product exists to surface (UX-DR25). */

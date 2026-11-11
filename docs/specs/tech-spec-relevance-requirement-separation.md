@@ -4,7 +4,7 @@ slug: 'relevance-requirement-separation'
 created: '2026-11-11'
 revised: '2026-11-11'
 status: 'in-progress'
-stepsCompleted: [1, 2, 3, 4, 5]
+stepsCompleted: [1, 2, 3, 4]   # unchanged -- revision 3 was hand-edited, not a workflow step
 revision: 3
 revision_note: >
   Revision 3, 2026-11-11. Tasks 1-9, 12, 13 and the Task 14 re-measurement have LANDED
@@ -338,12 +338,15 @@ relevance to 0, which both keeps them out of group 1 and makes their membership 
 closure alone. Option (b) was the expensive-looking answer and turned out to cost one small
 block, which is why the measurement came before the decision rather than after it.
 
-**This also fixes a defect that is live today.** `results.html:135-137` renders "8 of these
-rotate their topic each term. They are shown, never hidden (D-21)" — and for student 2 it
-renders that right now, about rows that are nowhere on the page, because `n_uncertain` is
-computed from `groups["requirement_only"]` while the list below it is dead. Option (a) would
-have left the callout's "these" pointing into a collapsed block; option (b) makes the sentence
-true.
+**This fixed a defect that was live, and not the one expected.** Building it revealed that the
+display cap was **deleting the uncertain rows entirely**. `app.py` capped `requirement_only` at
+`DISPLAY_LIMIT = 40`; uncertain rows have relevance forced to 0 and therefore sort last inside
+every bucket tier, placing student 2's eight at positions 161, 162, 317–319, 406, 414 and 423
+of 480 — all outside the cut. `n_uncertain` read off the same capped list, so it was **0 for
+every student and the callout at `results.html:135-137` never fired at all**. D-21 was already
+failing silently rather than being at risk from a collapsed block. **The fix had to be in
+`app.py`, not the template** — Jinja never saw the rows. Option (a) would have left this
+undiscovered, since a collapsed empty block looks much like a collapsed full one.
 
 **Still required of Task 11:** the callout must be absent at zero (student 1, every phrase)
 rather than rendering "0 of these".
@@ -662,7 +665,7 @@ and are ticked below. Tasks 10–11 did **not** land; Q-1 and Q-2 are now answer
     (the order in `README.md:15-17`; `app.py:146-150` lists a different one, a
     pre-existing inconsistency this spec does not fix).
 
-- [ ] Task 10: Render the groups · **UNBLOCKED — Q-1 (b), Q-2 (b)** · Story 3.6
+- [x] Task 10: Render the groups · **LANDED** — Q-1 (b), Q-2 (b) · Story 3.6
   - File: `templates/results.html`, `static/style.css`
   - Action: **One `<ol>`, not three.** Replace the `{% if results %}` guard at `:142` and
     the `<ol class="results">` at `:143` with a single group-1 list, each row carrying a
@@ -688,7 +691,7 @@ and are ticked below. Tasks 10–11 did **not** land; Q-1 and Q-2 are now answer
     section. `groups["both"]` stays in the data and keeps being persisted; it just has no
     section.
 
-- [ ] Task 11: Update the provenance and uncertainty copy · **UNBLOCKED — Q-1 (b), Q-2 (b)** · Story 3.6
+- [x] Task 11: Update the provenance and uncertainty copy · **LANDED** — Q-1 (b), Q-2 (b) · Story 3.6
   - File: `templates/results.html`
   - Action: Rewrite `RankProvenance` (`:123-127`) to say that ordering within the relevant
     list is **topical only**, that closure is applied as **grouping and badging** rather
@@ -697,11 +700,12 @@ and are ticked below. Tasks 10–11 did **not** land; Q-1 and Q-2 are now answer
     `:135-137` to point at the uncollapsed block Q-2 (b) creates — "these" is now true —
     and make it **absent at zero** rather than rendering "0 of these".
   - Notes: Under Q-2 (b) the callout's "shown, never hidden (D-21)" becomes literally
-    accurate, so D-21 needs no amendment and the sentence can stand as written. This also
-    closes a live defect: for student 2 the page renders "8 of these rotate their topic"
-    today, about rows that are nowhere on it. `8.6` in `docs/epics.md` is marked Partial
-    on exactly this task — the provenance line currently describes an ordering the code
-    stopped performing at `065d496`.
+    accurate, so D-21 needs no amendment and the sentence can stand as written. **This
+    task required an `app.py` change that was not in this spec**: the uncertain rows must
+    be selected before `DISPLAY_LIMIT` is applied, because they sort last and the cap was
+    removing all eight. See the Q-2 section. `8.6` in `docs/epics.md` was marked Partial
+    on exactly this task — the provenance line described an ordering the code stopped
+    performing at `065d496`.
 
 - [x] Task 12: Write `test_rank.py` · **LANDED**
   - File: `test_rank.py` (new)

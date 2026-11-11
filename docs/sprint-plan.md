@@ -18,7 +18,7 @@ inputDocuments:
   - 'navigator.db, rebuilt -- measured for the Q-2 answer and to verify the ranker spec AC 12'
   - 'elicitation/findings - running log.md (source of truth, D-01 to D-32 -- not in this repository)'
 workflowType: 'sprint-planning'
-authoredBy: 'bmad-sprint-planning, November 11 2026; revised the same day after the decisions were made'
+authoredBy: 'revision 1 by bmad-sprint-planning, November 11 2026. Revision 2 hand-written the same day after the owner answered D-33 and D-35 -- the workflow was NOT re-run'
 ---
 
 # Sprint 1 plan - New College Course Navigator

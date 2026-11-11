@@ -121,9 +121,28 @@ def _results_page(student_id, viewer_role, advisor_id=None):
         # Cap for DISPLAY only, and only now -- after stage 2 has chosen from
         # the whole pool. counts stay pre-cap so the page can say how many
         # exist, not just how many it is showing.
-        groups = dict(groups,
+        #
+        # Q-2 (D-35): the uncertain-and-closing rows are selected BEFORE the cap
+        # and placed at the head of the displayed set. They have to be, because
+        # rank.py forces their relevance to 0, which sorts them last inside every
+        # bucket tier -- for student 2 / "climate policy" they sit at positions
+        # 161, 162, 317-319, 406, 414 and 423 of 480, so a straight [:40] deleted
+        # all eight. That is D-21 ("shown, never hidden") failing silently, and it
+        # cannot be fixed in the template: by the time Jinja sees the list the rows
+        # are already gone.
+        uncertain = [r for r in groups["requirement_only"]
+                     if r["flag"] == "topic_uncertain"]
+        browse = [r for r in groups["requirement_only"]
+                  if r["flag"] != "topic_uncertain"]
+        # Both halves are counted pre-cap. `requirement_only` is the true total of
+        # the whole requirement-closing set; `browse` is that minus the uncertain
+        # rows, which is what the collapsed list's "N of M" has to measure against
+        # now that the uncertain rows are shown outside it.
+        counts = dict(groups["counts"], uncertain=len(uncertain), browse=len(browse))
+        groups = dict(groups, counts=counts,
                       relevant=groups["relevant"][:DISPLAY_LIMIT],
-                      requirement_only=groups["requirement_only"][:DISPLAY_LIMIT])
+                      requirement_only=(uncertain[:DISPLAY_LIMIT]
+                                        + browse[:DISPLAY_LIMIT]))
         # Group 2 is a badged view of the DISPLAYED group 1, so it is derived
         # from the capped list and can never hold a row group 1 does not show.
         groups["both"] = [r for r in groups["relevant"] if r["bucket_score"] > 0]
@@ -154,8 +173,9 @@ def _results_page(student_id, viewer_role, advisor_id=None):
         recent=recent,
         matched=matched, meta=meta, viewer_role=viewer_role, advisor_id=advisor_id,
         term_label=TERM_LABEL,
-        # Group 3 only. Uncertain rows have relevance forced to 0, so they can
-        # never clear the floor and can never be in group 1 to begin with.
+        # The uncertain rows only, and only the displayed ones. Counted off the
+        # pre-cap selection above rather than off the capped list, which read 0
+        # for every student -- the callout could not fire at all.
         n_uncertain=sum(1 for r in groups["requirement_only"]
                         if r["flag"] == "topic_uncertain"))
 
