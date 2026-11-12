@@ -4,7 +4,7 @@ The documents behind the application. Read them in this order.
 
 | File | What it answers |
 |---|---|
-| [`PRD.md`](PRD.md) | What the product must do. 34 functional and 19 non-functional requirements, each carrying a finding, assumption or decision ID. §9 lists every point where SOW v2.0 went stale |
+| [`PRD.md`](PRD.md) | What the product must do. 35 functional and 19 non-functional requirements, each carrying a finding, assumption or decision ID. §9 lists every point where SOW v2.0 went stale |
 | [`Architecture.md`](Architecture.md) | How it is built. Stack, data model, the two-stage ranker, cross-cutting concerns. §7 is **"Not yet built"** — the honest list |
 | [`data-model.md`](data-model.md) | The 14 tables as an ER diagram, generated from `schema.sql`. **Known stale** since November 11, 2026: `recommendation` gained `result_group` and its uniqueness constraint widened. Re-verify once, after sign-in adds its credential column |
 | [`UX Design.md`](UX%20Design.md) | 36 UX requirements and 15 named components, grounded in the screenshots in `../ux/` |
@@ -44,9 +44,14 @@ full, with the options rejected:
   488 rows on a phrase that matched nothing at all.
 - **D-36** — chat-led query construction. **Deferred** past sprint 1 to its own design cycle.
 
-**What is still outstanding:** the running-log §6 entries for D-33 and D-35, and the PRD edits
-they imply. The elicitation running log governs over the PRD and is not in this repository, so
-these documents record the decisions without being able to record them *there*.
+**What is still outstanding:** the running-log §6 entries for D-33 and D-35. The elicitation
+running log governs over the PRD and is not in this repository, so these documents record the
+decisions without being able to record them *there*.
+
+**The D-33 edits were made anyway, on November 11 2026.** Stories 1.5, 1.6 and 1.7 were built
+at the owner's direction ahead of the log entry, and FR35 was added to the PRD (34 → 35
+functional requirements). The requirement therefore exists while its governing log entry does
+not. The D-35 PRD edits for FR11, FR12 and FR15 are still unwritten.
 
 A further decision, proposed D-34, asked what a single degree-percent-complete figure may claim.
 **It was dropped on November 11, 2026 rather than decided.** `db.numeric_progress` computes the

@@ -20,6 +20,10 @@ import os
 import re
 
 os.environ.setdefault("NAVIGATOR_RANKER", "tfidf")
+# Story 1.5: every route needs a session now, and the app refuses to boot
+# without a real secret. Set one for the suite, then sign in below.
+os.environ.setdefault("NAVIGATOR_SECRET_KEY",
+                      "testsuite-" + "a1b2c3d4" * 8)
 
 import app as appmod
 import db
@@ -56,6 +60,10 @@ def main():
     passed = True
     conn = db.connect()
     client = appmod.app.test_client()
+    # Story 1.5 (D-33): unauthenticated requests are served the sign-in
+    # page, so the suite signs in as the advisor whose screen it tests.
+    client.post("/signin",
+                data={"username": "dwhitfield", "password": "navigator"})
 
     r = client.get("/advisor/{}".format(ADVISOR_ID))
     passed &= check("advisor page renders", r.status_code, 200)
@@ -176,7 +184,10 @@ def main():
             "/student/{}".format(s["student_id"]) for s in advisees]:
         try:
             got = client.get(path)
-            if got.status_code != 200:
+            # "/" is a 302 to the signed-in user's own view since Story 1.5
+            # removed the picker; it renders no template of its own.
+            ok = (302,) if path == "/" else (200,)
+            if got.status_code not in ok:
                 strict.append("{} -> {}".format(path, got.status_code))
         except jinja2.UndefinedError as e:
             strict.append("{} -> {}".format(path, e))

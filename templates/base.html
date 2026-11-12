@@ -14,11 +14,26 @@
 </head>
 <body>
 
-{# 1. AppHeader — UX-DR5, three states #}
+{# 1. AppHeader — UX-DR5, now with a signed-out state (D-33, Story 1.5).
+   `signed_in_user` is WHO IS SIGNED IN; the `who` block is WHOSE RECORD is on
+   screen. They differ whenever an advisor acts on a student's behalf (FR29),
+   so the header carries both rather than conflating them. #}
 <header class="masthead">
   <a href="{{ url_for('home') }}" class="brand">Course Navigator</a>
   <span class="spacer"></span>
   {% block who %}{% endblock %}
+  {%- if signed_in_user %}
+  <span class="signed-in">
+    Signed in as <b>{{ signed_in_user.display_name }}</b>
+    <span class="role">{{ signed_in_user.role }}</span>
+  </span>
+  {#- Story 1.7. A POST, not a link: a GET sign-out fires from any prefetch or
+      <img src> and logs people out at a distance. Present on every signed-in
+      page, including the acting-as view, which otherwise has no exit. #}
+  <form method="post" action="{{ url_for('signout') }}" class="signout">
+    <button type="submit">Sign out</button>
+  </form>
+  {%- endif %}
   <span class="term">{{ term_label }}</span>
 </header>
 {% block subheader %}{% endblock %}

@@ -1,6 +1,6 @@
 # Story 7.6: Find an advisee by name
 
-Status: review
+Status: done
 
 <!-- Created 2026-11-11 by bmad-create-story. Second per-story file; follows
      docs/stories/story-7.7.md, which built the row this story searches. -->

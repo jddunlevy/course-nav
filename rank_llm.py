@@ -34,34 +34,12 @@ With neither, `available()` returns False and the caller falls back to TF-IDF.
 import json
 import os
 
+# AR14's .env loader now lives in config.py, so that the session secret added
+# by Story 1.5 is not loaded as a side effect of importing this optional module.
+# Re-exported here because this module's own callers used it from here.
+from config import ENV_FILE, load_env  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-ENV_FILE = os.path.join(HERE, ".env")
-
-
-def load_env(path=ENV_FILE):
-    """Read KEY=value lines from a gitignored .env into os.environ.
-
-    Env vars set in a shell do not survive between separate invocations, and on
-    Windows `setx` needs a restart before running processes see it. A file next
-    to the app sidesteps both. Existing environment values always win.
-    """
-    if not os.path.exists(path):
-        return []
-    loaded = []
-    # utf-8-sig, not utf-8: PowerShell's Out-File / Set-Content write a BOM,
-    # which would otherwise become part of the first key name and never match.
-    with open(path, encoding="utf-8-sig") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            key, value = key.strip(), value.strip().strip('"').strip("'")
-            if key and not os.environ.get(key):
-                os.environ[key] = value
-                loaded.append(key)
-    return loaded
-
 
 load_env()
 

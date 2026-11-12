@@ -472,3 +472,33 @@ footer {
 /* An absent value is stated, never left blank (UX-DR34). Italic and dim so it
    does not read as something the student actually typed. */
 .not-recorded { color: var(--ink-dim); font-style: italic; }
+
+/* ------------------------------- 17. AppHeader signed-in state (UX-DR5)
+   Story 1.5 / D-33. Distinct from `.who`: that names whose record is on
+   screen, this names who is signed in, and an advisor acting on a student's
+   behalf (FR29) is both at once. */
+
+.signed-in { font-size: 13px; color: var(--ink-dim); }
+.signed-in b { color: var(--ink); font-weight: 600; }
+.signed-in .role { margin-left: var(--sp-1); }
+
+/* ------------------------------------------- 18. SignInForm (Story 1.5) */
+
+.signin { display: grid; gap: var(--sp-1); max-width: 22rem; margin: var(--sp-4) 0; }
+.signin label { font-weight: 600; font-size: 13px; }
+.signin input { padding: var(--sp-2); font: 15px var(--sans);
+                border: 1px solid var(--rule-strong); border-radius: var(--radius);
+                background: var(--surface); color: var(--ink); }
+.signin button { margin-top: var(--sp-2); justify-self: start; }
+.demo-logins { margin-top: var(--sp-4); }
+
+/* --------------------------------------- 19. Sign-out control (Story 1.7)
+   A form, not a link, because sign-out is a POST. Styled down to a link so the
+   masthead does not grow a second primary button next to "Rank sections". */
+
+.signout { display: inline; margin: 0; }
+.signout button {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font: 13px var(--sans); color: var(--crimson); text-decoration: underline;
+}
+.signout button:hover { color: var(--ink); }

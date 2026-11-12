@@ -167,9 +167,9 @@ effects on them are recorded here and inline.
 |---|---|---|
 | 1.5 Sign in with a credential | ~~L~~ **M** | **Supersedes** Story 1.1's first two acceptance criteria ("Given the role picker is open") and voids its sizing note, "no credential handling (AR16)". 1.1's header, acting-as and not-found criteria survive unchanged. **Resized L → M** by D-33: a local credential table on stdlib hashing is the M option. **Also removes the picker outright** rather than superseding it — `seed.py` gains known passwords so the four seeded users stay reachable |
 | 1.6 Scope every student view to the signed-in user | M | **Modifies** Story 7.2 — the advisor-for-student view needs an ownership check it does not have — and closes the hole that `/student/<id>` is readable by anyone who can type a number |
-| 1.7 Sign out and end the session | S | New. Nothing existing covers ending a session, because nothing existing starts one |
-| 7.6 Find an advisee by name | M | **Implemented November 11 2026, at review, with AC 3 split rather than ticked.** **Modifies** Story 7.1: the advisee list is now the no-query state of a search rather than a screen of its own. **Modifies** Story 8.4 — the empty-state variant it adds, "no advisee matched", is UX-DR18's **fifth**, not its fourth: Story 3.6 took the DR to four first |
-| 7.7 See what each advisee is working on | S | **Implemented November 11 2026, at review.** Reads `student.depth_study_label` and `search_request.phrase`, both of which existed and neither of which reached the advisor screen. **Precedes 7.6**, not the reverse — it builds the row component 7.6 reuses. Added `db.recent_phrases`, a fourth seeded advisee and a deterministic `SEARCHES` fixture, without which three of its five criteria were unverifiable |
+| 1.7 Sign out and end the session | S | **Implemented November 11 2026, at review.** Nothing existing covered ending a session, because nothing existing started one. Beyond the session itself it added `Cache-Control: no-store` to every signed-in response — the shared-machine threat is a cached page the browser serves without asking the server |
+| 7.6 Find an advisee by name | M | **Done — approved November 11 2026. All six criteria met:** AC 3's enforcement half was closed the same day by Stories 1.5 and 1.6, and the caveat is withdrawn.** **Modifies** Story 7.1: the advisee list is now the no-query state of a search rather than a screen of its own. **Modifies** Story 8.4 — the empty-state variant it adds, "no advisee matched", is UX-DR18's **fifth**, not its fourth: Story 3.6 took the DR to four first |
+| 7.7 See what each advisee is working on | S | **Done — approved November 11 2026.** Reads `student.depth_study_label` and `search_request.phrase`, both of which existed and neither of which reached the advisor screen. **Precedes 7.6**, not the reverse — it builds the row component 7.6 reuses. Added `db.recent_phrases`, a fourth seeded advisee and a deterministic `SEARCHES` fixture, without which three of its five criteria were unverifiable |
 | 3.6 Render the result groups | M | New, November 11 2026. Closes Tasks 10–11 of the ranker spec, which did not land with Tasks 1–9. **Fixes** Story 3.5's rendering and Story 8.6's stale provenance, and is what makes Stories 3.1–3.4 visible again. Carries the Q-1 and Q-2 answers |
 | ~~7.8 Show a degree-progress indicator~~ | — | **Dropped November 11 2026**, the day it was added. `db.numeric_progress` reads 482% for the seeded senior, so there was no honest figure to render. Nothing else depended on it |
 
@@ -228,7 +228,7 @@ view for that role." What changes is what "signs in" means.
    preference, it is a security claim that stops being true.
 
 3. **Does the seeded-user picker survive? → No. It is removed.** `seed.py` gives the one advisor
-   and three students (**D-24**) known passwords, and the graded demonstration signs in the way
+   and its students (**D-24**) known passwords, and the graded demonstration signs in the way
    a real user would. All four stay reachable, and the shipped code has exactly one door — no
    environment-gated bypass to explain in the final presentation. `README.md` gains the demo
    logins when 1.5 lands.
@@ -252,7 +252,7 @@ view for that role." What changes is what "signs in" means.
   needs a new FR carrying D-33. `bmad-edit-prd` is the tool; it is not done here, because the
   PRD is governed by the running log and the log entry does not exist yet.
 
-**What is still outstanding:** the **running-log §6 entry for D-33**. The decision is made and
+**What is still outstanding:** the **running-log §6 entry for D-33** — Stories 1.5, 1.6 and 1.7 were built ahead of it on November 11 2026 at the owner's direction, so it blocks nothing now, but it is skipped rather than satisfied. The decision is made and
 Stories 1.5–1.7 are sized and sequenced against it, but the log is the source of truth and is
 not in this repository. Jaxon writes it.
 
@@ -400,6 +400,7 @@ is what **D-17**, **D-27** and **D-31** exist to refuse.
 - FR32: The system warns when no offered section closes an outstanding requirement. (SOW §6 row 7, **F-12**, **F-13**)
 - FR33: A user signs in as either a student or an advisor, and sees the view for that role. (**D-20**, **F-40**)
 - FR34: A student has exactly one advisor. The student records person has no role in the system. (**D-25**, **F-39**)
+- FR35: A user proves who they are with a credential before any record is shown; no route but the sign-in page serves student or advisor data without a session. (**D-33**, added November 11 2026 — the role picker satisfied FR33 without one, and was a public index of who exists with a working link into each record)
 
 ### NonFunctional Requirements
 
@@ -445,7 +446,7 @@ scaffolding story here would be invented work in a graded backlog.
 - AR13: Logging is the standard Flask logger. Index construction and **every** reranker fallback log at warning with the exception type.
 - AR14: Configuration is environment variables with a `.env` loader read as `utf-8-sig`, because PowerShell writes a BOM that corrupts the first key.
 - AR15: No deployment, hosting, or CI is in scope. The application runs on localhost port 5000.
-- AR16: No auth provider is in scope. The role picker stands in for authentication; the role split is what matters for the demonstration.
+- AR16: ~~No auth provider is in scope.~~ **REVERSED by D-33, built November 11 2026 (Story 1.5).** A credential and a session replaced the picker; what stays out of scope is an auth *provider* (SSO, reset, lockout) and, until Story 1.6, authorisation between signed-in users. Original text: No auth provider is in scope. The role picker stands in for authentication; the role split is what matters for the demonstration.
 - AR17: `db.outstanding_buckets` has no test coverage and is the highest-risk untested code given AR12. Tests for it belong in the backlog.
 - AR18: An open defect exists in `ingest.GENERIC_DESC_PATTERNS`: it cannot match "vary" or "subject matter varies", leaving 14 of 259 special-topics courses unflagged. The fix must be title-aware and is a pending team decision, not a patch.
 - AR19: The live LLM path has never run against a real credential. The response schema is unvalidated; the first real call may surface a schema error, which the fallback will catch.
@@ -458,7 +459,7 @@ scaffolding story here would be invented work in a graded backlog.
 > it is what ruled out university SSO: an SSO redirect cannot complete against localhost:5000
 > without a client registered with the university. **AR1 is not reversed either** — the
 > credential store needs no new package, because the hashing is standard library. The
-> running-log entry for D-33 is still outstanding; see "The decisions this sprint depends on".
+> running-log entry for D-33 is still outstanding — the sprint-1 stories were built ahead of it on November 11 2026 at the owner's direction; see "The decisions this sprint depends on".
 
 ### UX Design Requirements
 
@@ -544,8 +545,11 @@ Every FR maps to exactly one epic. 34 of 34 covered; no FR appears in two epics.
 does not state: a credentialed sign-in, since FR33 covers the role split, not a credential. By
 the PRD's own evidence rule — "a requirement with no ID is an opinion and does not belong
 here" — it owes an FR carrying **D-33**. The decision was made on November 11 2026 but the
-running-log entry does not exist yet, and the PRD is governed by that log, so the FR is not
-written here: these stories still carry the gap rather than a requirement. A sixth story, 7.8,
+running-log entry does not exist yet. The PRD is governed by that log, which is why this
+paragraph originally declined to write the FR. **Superseded November 11 2026:** Story 1.5 was
+built at the owner's direction ahead of the log entry, and **FR35 was written into the PRD**
+carrying D-33, taking the count from 34 to 35. The FR therefore exists while its governing log
+entry does not — recorded here so the irregularity is visible rather than discovered later. A sixth story, 7.8,
 would have owed a second FR for a degree-progress indicator; it was dropped. **Story 3.6 adds
 none** — it renders FR11, FR12, FR15 and FR18, all of which already exist, three of them as
 amended by **D-35**, which owes PRD edits rather than new IDs.
@@ -653,7 +657,7 @@ picker, an ownership check on the student routes, and sign-out. They reverse AR1
 decided November 11 2026: a local credential table on `app_user` verified with stdlib
 `hashlib.pbkdf2_hmac`, the picker removed outright, and `/student/<id>` kept with an ownership
 check. The epic's title was already "Sign in and see where I stand"; until sprint 1 the first
-half of it was a list of names. The running-log entry for D-33 is still outstanding.
+half of it was a list of names. The running-log entry for D-33 is still outstanding; Stories 1.5-1.7 were built ahead of it on November 11 2026 at the owner's direction.
 
 ### Story 1.1: Enter as a student or an advisor
 
@@ -767,8 +771,23 @@ I want to sign in with a credential instead of picking my name off a public list
 So that my record is reached by proving who I am rather than by knowing a URL.
 
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — a password column, a hash verify, a session and one new template, all of it ordinary; the uncertainty that made this L was the unmade decision, not the work. `hashlib` is standard library, so there is no dependency question left.
-**Covers:** FR33 (re-covered — the picker satisfied it without a credential), and **owes a new FR** carrying D-33 · **NFRs:** NFR11 · **Architecture:** reverses AR16; adds a config key under AR14; **falsifies `Architecture.md` §2's "survives being emailed"** · **UX:** UX-DR5, which gains a signed-out state · **Decisions:** **D-33, decided November 11 2026** — running-log entry still outstanding
-**Status:** **Ready for dev** once the D-33 log entry exists · **Resized L → M** by D-33. Supersedes the role-picker criteria of Story 1.1 and **removes the picker**.
+**Covers:** FR33 (re-covered — the picker satisfied it without a credential), and **FR35**, written November 11 2026 carrying D-33 · **NFRs:** NFR11 · **Architecture:** reverses AR16; adds a config key under AR14; **falsifies `Architecture.md` §2's "survives being emailed"** · **UX:** UX-DR5, which gains a signed-out state · **Decisions:** **D-33, decided November 11 2026** — running-log entry still outstanding
+**Status:** **Implemented November 11 2026 — at review. BUILT AHEAD OF ITS DECISION RECORD.**
+This story was gated on the D-33 running-log §6 entry, which this repository still calls
+outstanding; the owner directed that it be built regardless. D-33 itself was decided
+November 11 2026 — only its log entry is in question. Recorded here rather than left implied,
+because the gate was the project's own and skipping it is a fact about this story.
+**Resized L → M** by D-33. Supersedes the role-picker criteria of Story 1.1 and **removes the
+picker**. New: `auth.py`, `config.py`, `templates/signin.html`, `test_auth.py`; deleted:
+`templates/home.html`. Verified by `test_auth.py`, 60 assertions. Dev context:
+`docs/stories/story-1.5.md`.
+
+**What it closes for Story 7.6, and what it does not.** 7.6's third criterion had an
+enforcement half that no work inside 7.6 could reach. This story closes it **for anonymous
+callers**: every route but the sign-in page now serves the sign-in page instead of data, and a
+signed-out request leaks no student or advisor name anywhere. It does **not** close it between
+signed-in users — advisor 1 can still open `/advisor/2` and `/student/5`. That is Story 1.6's
+ownership check, and 7.6's record says so rather than claiming the criterion met.
 **Added:** sprint 1, November 11 2026. Resized and unblocked November 11 2026.
 
 **Acceptance Criteria:**
@@ -812,7 +831,7 @@ plaintext password is written to the database, the logs or the session.
 environment variable, query parameter or debug route that bypasses sign-in.
 
 **Given** a freshly seeded database
-**When** the graded demonstration signs in as the advisor or any of the three students
+**When** the graded demonstration signs in as an advisor or any of the seeded students
 **Then** each has a known working password, documented in `README.md`, and all four records are
 reachable without a bypass.
 
@@ -830,7 +849,24 @@ So that my completed coursework is not readable by anyone who can increment a nu
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — `/student/<id>` and `/advisor/<id>` key on raw record ids, and `_results_page` checks only that the student exists. One route pattern has to serve a student, that student's advisor, and nobody else.
 **Covers:** FR33, FR34 · **NFRs:** NFR11 — completed coursework is education-record data · **Decisions:** D-25 makes "my advisee" the entire authorisation rule; **D-33 keeps the `/student/<id>` pattern** rather than replacing it with `/me` + `/advisor/student/<id>`, so this story is an added check and not a re-routing
 **Depends on:** Story 1.5 — there is no identity to check against until sign-in exists.
-**Status:** Not started · Unblocked by D-33; startable as soon as 1.5 lands. Size **M** stands — the kept URL pattern is why it did not grow.
+**Status:** **Implemented November 11 2026 — at review.** `auth.py` (`may_view_student`,
+`may_view_advisor`, and a request-scoped wrapper) and `app.py` (all three id-bearing routes,
+plus the actor on a saved search). No schema change, no new dependency, no template change:
+the refusal reuses Flask's 404. Verified by `test_scoping.py`, 40 assertions. Dev context:
+`docs/stories/story-1.6.md`. Size **M** stood — the kept URL pattern is why it did not grow.
+
+**Every refusal is the same response as a missing record.** AC 5 rules out a 403/404 split,
+which would let a classmate map which student ids exist by reading status codes. The test
+compares the forbidden and the nonexistent responses **byte for byte** rather than checking
+that both are refusals, and separately asserts a permitted request still differs — or the
+first check would pass on a route that refused everything.
+
+**Both ids on `/advisor/<id>/student/<id>` are checked.** Verifying only the advisor segment
+would let any advisor read any student by putting their own id in it; verifying only the
+advisee relationship would leave that segment free to name someone else.
+
+**This is what closed Story 7.6.** Its third criterion had an enforcement half that no work
+inside 7.6 could reach.
 **Added:** sprint 1, November 11 2026. Unblocked November 11 2026.
 
 Under D-33 this story is also what keeps **UX-DR22** honest: a result URL stays shareable, and
@@ -872,7 +908,29 @@ So that the next person at a shared advising-office machine does not land in my 
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — small, but without it sign-in is a one-way door and the acting-as state has no exit.
 **Covers:** FR33 · **UX:** UX-DR5
 **Depends on:** Story 1.5.
-**Status:** Not started · Unblocked by D-33; startable as soon as 1.5 lands.
+**Status:** **Implemented November 11 2026 — at review.** `app.py` (`POST /signout` and an
+`after_request`), `templates/base.html`, `templates/signin.html`, `static/style.css`. Verified
+by `test_signout.py`, 26 assertions. Dev context: `docs/stories/story-1.7.md`. **Last story in
+sprint 1.**
+
+**The second criterion is not about the sign-out response.** "The signed-in response was not
+marked cacheable" is a requirement on every page served *while* signed in. Clearing the
+session only stops the **server** answering; a page already in the browser's cache is served
+by the browser, so the next person at the shared machine presses Back and reads the record
+without a request reaching Flask. Every non-static response now carries
+`Cache-Control: no-store, no-cache, must-revalidate, private`. `/static` is left cacheable —
+the stylesheet is not private.
+
+**The third criterion turned out to be about `next`, not about stored state.** There is no
+acting-as flag in the session: the acting-as view is a URL. The only way it could carry into
+the next sign-in is through the `next` parameter Story 1.5 added — sign out from the acting-as
+page with `next` still pointing at it, and the following sign-in drops the next person inside
+the previous student's record. Sign-out therefore redirects to a bare `/signin`, and the test
+signs in as a *different* user afterwards, which is the case that would actually hurt.
+
+**Sign-out is POST.** A `GET /signout` is triggered by anything that fetches a URL — a
+prefetching browser, an `<img src="/signout">` on any page the user visits — which signs
+people out at a distance. The cost is one small form in the masthead.
 **Added:** sprint 1, November 11 2026. Unblocked November 11 2026.
 
 **Acceptance Criteria:**
@@ -1107,7 +1165,8 @@ spec did not anticipate. Verified by 32 assertions against rendered HTML across 
 and four phrases, with `NAVIGATOR_RANKER=tfidf`. **Reviewed November 11 2026** against a
 second harness written from the criteria alone, which recomputes every expected value from
 `rank.py` instead of reading it from this story: 63 checks, all passing, and all 12 renders
-clean. Exactly one substantive failure stood between the first run and that result, and it was
+clean, and that harness is now committed as **`test_result_page.py`** so these criteria are
+re-runnable rather than a one-off claim. Exactly one substantive failure stood between the first run and that result, and it was
 this document's wording rather than the code — the browse-summary criterion below asked for a
 number the page should not print. Three other first-pass failures were defects in the review
 harness itself, not in the page. That review also re-rendered all 15 pages under
@@ -1632,8 +1691,10 @@ So that I can open the right student during an appointment instead of reading th
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — the advisee list is one flat table today; the search has to stay scoped to the signed-in advisor's own advisees and share one row component with the unsearched list, or the two will diverge.
 **Covers:** FR28 — extends it from a list to a search · **UX:** UX-DR19, UX-DR18 (a fifth variant — Story 3.6 took it to four), UX-DR22 — the query lives in the query string, as the phrase search's does
 **Depends on:** Stories 1.5 and 1.6 for its third and fifth criteria — "my advisees" is not a defined set without a signed-in advisor — and on **Story 7.7** for the row component. 7.7 is built first.
-**Status:** **Implemented November 11 2026 — at review, with the third criterion split rather
-than ticked.** `templates/advisor.html` (a GET search form and UX-DR18's fifth empty state),
+**Status:** **Done — implemented and approved November 11 2026. All six criteria now met.**
+Approved while AC 3's enforcement half was still open; **that half was closed the same day by
+Stories 1.5 and 1.6**, and the caveat recorded here has been withdrawn. A non-advisee is now
+protected, not merely absent from a search result. `templates/advisor.html` (a GET search form and UX-DR18's fifth empty state),
 `app.py` (`advisor_view`), **`db.py`** (`advisees` takes an optional name filter) and
 **`seed.py`** (a second advisor). Verified by `test_advisor_search.py`, 31 assertions. Dev
 context: `docs/stories/story-7.6.md`. Modifies Story 7.1, which becomes the no-query state.
@@ -1651,8 +1712,13 @@ thing loses the difference:
   only advisor, so before this story the criterion had nothing to query for. The no-match empty
   state is identical for a real non-advisee and for a name nobody has — a page that said "not
   your advisee" would leak the student's existence while passing a weaker test.
-- **Enforcement — unmet, and not ticked.** Nothing stops anyone opening `/advisor/2`. There is
-  no session and no ownership check. Stories 1.5 and 1.6 close it.
+- **Enforcement — CLOSED November 11 2026 by Stories 1.5 and 1.6.** 1.5 added the session:
+  an anonymous caller is served the sign-in page for every route and no student or advisor
+  name appears in any signed-out response. 1.6 added the ownership check: a signed-in advisor
+  now gets the *same 404 as a nonexistent record* for another advisor's pages and advisees,
+  and a student for anyone's record but their own. The refusal is byte-identical to the
+  not-found response, so the route cannot be used to discover which ids exist — asserted, not
+  assumed, in `test_scoping.py`. **AC 3 is met in full; the story's caveat is withdrawn.**
 
 **The sixth criterion was measured, not reasoned about.** `db.outstanding_buckets` issues
 exactly ten SELECTs per student (one requirement query plus one per bucket requirement),
@@ -1700,8 +1766,9 @@ So that I recognise the right student and know what they are pursuing before ope
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — both fields already exist (`student.depth_study_label`, `search_request.phrase`) and neither is on the advisor screen. The care is in labelling them as the student's own words rather than as a system judgment (D-22).
 **Covers:** FR28 · **UX:** UX-DR19 · **Decisions:** D-22 — the depth study is a free-text working label and ranking never reads it; D-26 — nothing is approved before the third-year review · **Evidence:** F-04
 **Depends on:** nothing. **Depended on by Story 7.6**, which reuses the row component this story builds.
-**Status:** **Implemented November 11 2026 — at review.** `templates/advisor.html`,
-`app.py` (`advisor_view`), **`db.py`** (`recent_phrases`, one query for the whole advisee set)
+**Status:** **Done — implemented and approved November 11 2026.** All five criteria met.
+`templates/advisor.html`, `app.py` (`advisor_view`), **`db.py`** (`recent_phrases`, one query
+for the whole advisee set)
 and **`seed.py`** — the fixture, which this story's plan did not originally anticipate needing.
 Verified by `test_advisor_row.py`, 30 assertions against rendered HTML, the first committed
 page-level test in the project. Dev context: `docs/stories/story-7.7.md`.

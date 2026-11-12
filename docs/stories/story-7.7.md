@@ -1,6 +1,6 @@
 # Story 7.7: See what each advisee is working on in the search result
 
-Status: review
+Status: done
 
 <!-- Created 2026-11-11 by bmad-create-story. First per-story file in this project:
      until now a story's full context was its section in docs/epics.md

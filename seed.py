@@ -9,7 +9,15 @@ course's attributes from the spring 2027 catalog.
     python seed.py
 """
 
+import auth
 import db
+
+# Demo passwords (Story 1.5, D-33). These are IN THE OPEN on purpose: this is a
+# graded course prototype whose demo has to be runnable from a clean clone, and
+# the README lists them too. What the story claims is that the MECHANISM is
+# real -- per-user salt, PBKDF2-HMAC, no plaintext at rest -- not that these
+# accounts are secret. A real deployment would issue credentials, not seed them.
+DEMO_PASSWORD = "navigator"
 
 # Keep Dana Whitfield FIRST: advisor_id is assigned by insertion order and the
 # doc set, test_advisor_row.py and Story 3.6's harness all address advisor 1.
@@ -167,10 +175,12 @@ def run(conn):
         cur = conn.execute("INSERT INTO advisor (name, email) VALUES (?, ?)",
                            (name, email))
         advisor_ids.append(cur.lastrowid)
+        pw_hash, pw_salt, pw_iters = auth.hash_password(DEMO_PASSWORD)
         conn.execute(
-            "INSERT INTO app_user (username, display_name, role, advisor_id)"
-            " VALUES (?, ?, 'advisor', ?)",
-            (email.split("@")[0], name, cur.lastrowid))
+            "INSERT INTO app_user (username, display_name, role, advisor_id,"
+            " password_hash, password_salt, password_iterations)"
+            " VALUES (?, ?, 'advisor', ?, ?, ?, ?)",
+            (email.split("@")[0], name, cur.lastrowid, pw_hash, pw_salt, pw_iters))
 
     for i, (name, email, classification, year, depth) in enumerate(STUDENTS):
         cur = conn.execute("""
@@ -180,10 +190,12 @@ def run(conn):
         """, (name, email, classification, year,
               advisor_ids[STUDENT_ADVISOR.get(i, 0)], depth))
         sid = cur.lastrowid
+        pw_hash, pw_salt, pw_iters = auth.hash_password(DEMO_PASSWORD)
         user_cur = conn.execute(
-            "INSERT INTO app_user (username, display_name, role, student_id)"
-            " VALUES (?, ?, 'student', ?)",
-            (email.split("@")[0], name, sid))
+            "INSERT INTO app_user (username, display_name, role, student_id,"
+            " password_hash, password_salt, password_iterations)"
+            " VALUES (?, ?, 'student', ?, ?, ?, ?)",
+            (email.split("@")[0], name, sid, pw_hash, pw_salt, pw_iters))
 
         # Oldest first, so request_id ascends with time and the
         # "ORDER BY request_id DESC" readers use returns the most recent first.

@@ -52,10 +52,10 @@ is initialised, dependencies are declared in `requirements.txt`, and the applica
 |---|---|---|
 | Language | Python 3 | The Banner scraper it feeds on is already Python |
 | Web | Flask, server-rendered Jinja | No build step, no npm, no client framework |
-| Store | SQLite (`navigator.db`), WAL | Single file, zero setup, survives being emailed |
+| Store | SQLite (`navigator.db`), WAL | Single file, zero setup. **No longer "survives being emailed"** — since Story 1.5 (D-33) the file carries password hashes, so a copy of it is a copy of the credential store. Amended 2026-11-11 |
 | Retrieval | Pure-Python TF-IDF (`rank.py`) | No numpy, no service. Flask is the only hard dependency. |
 | Rerank | `anthropic` 2.4.0, `claude-opus-5` default | Optional. Absent credential degrades, never breaks. |
-| Auth | **None** | Deliberate — see §9 |
+| Auth | Session cookie + PBKDF2-HMAC credential (`auth.py`, stdlib) | **Added by D-33, Story 1.5; reverses AR16.** Every route but the sign-in page requires a session. Still not an auth *provider*: no SSO, no reset, no lockout |
 | Deployment | **None** — `python app.py`, localhost:5000 | Deliberate — see §9 |
 
 The dependency list is deliberately near-empty. The one optional dependency is the Anthropic
@@ -129,14 +129,14 @@ exactly the failure the product exists to prevent (**F-12**, **NFR8**).
 | Course descriptions | `POST /searchResults/getCourseDescription` | 3,172 cached; ~5% return HTTP 500, meaning no record exists |
 | Requirement rules | Hand-encoded in `reference_data.sql` | 13 requirements, 12 buckets |
 | Seminar themes (**not yet built**) | `reference/nc-seminar-themes-202710.csv`, extracted from the term course booklet | 15 seminars, 12 tagged |
-| Completed coursework | Seeded by `seed.py` | 1 advisor, 3 students (**D-24**) |
+| Completed coursework | Seeded by `seed.py` | 2 advisors, 5 students (**D-24**). Three carry real coursework; two are fixtures added by Stories 7.6 and 7.7 for criteria the first three could not exercise |
 
 Setup is a four-step pipeline, each step idempotent:
 
 ```
 python ingest.py --reset          # build navigator.db from data/spring2027.csv
 python descriptions.py --from-csv # load the cache that ships in data/
-python seed.py                    # demo advisor + 3 students
+python seed.py                    # 2 demo advisors + 5 students, with credentials
 python app.py                     # http://127.0.0.1:5000
 ```
 
@@ -166,21 +166,29 @@ so a `database is locked` error appeared on any search during a description fetc
 ## 5. Application structure
 
 ```
-app.py          4 routes, no blueprints
+app.py          6 routes, no blueprints
+auth.py         password hashing, session, who-may-see-what (D-33)
+config.py       .env loader (AR14) and the session-secret boot check
 db.py           connection, schema creation, all queries
 ingest.py       Banner CSV -> SQLite, attribute mapping, topic flagging
 descriptions.py resumable description fetch
 rank.py         TF-IDF index, bucket scoring, combined ranking
 rank_llm.py     optional second-stage rerank + validation
-templates/      base, home, results, advisor
+templates/      base, signin, results, advisor
 ```
 
 | Route | Role | Purpose |
 |---|---|---|
-| `/` | — | Role picker over `app_user` |
-| `/student/<id>` | student | Outstanding requirements + phrase search |
-| `/advisor/<id>` | advisor | Advisee list with outstanding counts |
-| `/advisor/<id>/student/<id>` | advisor | The student view, on a student's behalf |
+| `/signin` | — | The only route served without a session (D-33, Story 1.5) |
+| `/signout` | any | **POST only.** Clears the session (Story 1.7) |
+| `/` | any | Redirects to the signed-in user's own view; was the role picker |
+| `/student/<id>` | that student, or their advisor | Outstanding requirements + phrase search |
+| `/advisor/<id>` | that advisor | Advisee list, with a name search (Story 7.6) |
+| `/advisor/<id>/student/<id>` | that advisor, for their own advisee | The student view, on a student's behalf |
+
+Every route but `/signin` requires a session, and every one carrying an id is scoped to the
+signed-in user (Story 1.6). A refusal is the **same 404 as a record that does not exist**, so
+the routes cannot be used to discover which ids are real.
 
 Both result views share one function, `_results_page`, so the student and the advisor see the
 same ranking from the same code path. This matters for **FR29**: an advisor must see what the
@@ -269,7 +277,7 @@ and absent from the code.
 | FR31 | Depth-study candidates proposed for advisor confirmation | SOW §6 row 6. Needs a proposal record with an advisor decision; must never assert (**F-04**) |
 | FR32 | Gap warning when nothing offered closes a requirement | SOW §6 row 7. Computable today from `outstanding_buckets` × offerings |
 | FR2 | Show why a section was tagged | Data exists in `offering_attribute`; not surfaced |
-| FR33, FR34 | Real role-based sign-in | Currently a role picker with no credential — see §9 |
+| FR33, FR34 | ~~Real role-based sign-in~~ **Built, Stories 1.5 and 1.6** | The role picker is gone, and every id-bearing route is scoped to the signed-in user. Sign-out landed with Story 1.7, which also put `Cache-Control: no-store` on every signed-in response — on a shared machine the browser cache, not the session, is what exposes the previous person's record. What is still not built: rate limiting, lockout, and any audit log of refusals |
 | FR8 | DegreeWorks import | Seeded. Audit-PDF parse is the stated plan; blocked on the FERPA question (**NFR11**) |
 
 The seminar-theme work is the largest of these, because it adds a requirement *kind* the schema
@@ -301,7 +309,7 @@ which is the highest-risk untested code given NFR8.
 
 | Not built | Reason |
 |---|---|
-| Auth provider, passwords, sessions | The role split is what matters for the demonstration; the security model is not the subject. Shipping this for real would need it. |
+| ~~Auth provider, passwords, sessions~~ **Passwords and sessions are built (D-33, Story 1.5).** Still not built: an auth *provider* | A credential was added once the role picker turned out to be a public index of who exists, each name a working link into their record. Authorisation between signed-in users landed with Story 1.6: a student reaches only their own record, an advisor only their advisees, and every refusal is indistinguishable from a missing record so the routes cannot be used to enumerate students (NFR11). What remains out of scope is SSO, password reset, lockout and rate limiting. |
 | Deployment, hosting, CI | Out of scope for a course prototype |
 | `prerequisite` and `instructor` as entities | No finding asks for them |
 | Any approval workflow | No formal approval exists before the third-year review (**D-26**) |

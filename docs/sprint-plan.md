@@ -60,8 +60,11 @@ Full statements in [`epics.md`](epics.md); the operative content:
 
 **What is still outstanding, and it is not a developer's to close:** the **running-log §6
 entries** for D-33 and D-35. The log governs over the PRD and is not in this repository. The
-decisions are made and this plan is sized against them, but until the entries exist the IDs are
-provisional and the PRD edits below cannot be written.
+decisions are made and this plan is sized against them. **Overtaken by events on November 11
+2026:** the owner directed that Lane A be built without waiting, so Stories 1.5, 1.6 and 1.7
+are written and FR35 was added to the PRD for D-33. The D-35 PRD edits for FR11, FR12 and FR15
+remain unwritten. The IDs are still provisional in the sense that nothing outside this
+repository records them.
 
 Three consequences that ride along with the decisions:
 
@@ -86,7 +89,7 @@ Three consequences that ride along with the decisions:
 | 3.6 Render the result groups | M | **C** | **Ready for dev.** No dependency on anything |
 | 7.7 See what each advisee is working on | S | B | **Ready for dev.** No dependency on sign-in |
 | 7.6 Find an advisee by name | M | B | Startable; third criterion stays unmet until Lane A — see below |
-| 1.5 Sign in with a credential | ~~L~~ **M** | A | Ready for dev once the D-33 log entry exists |
+| 1.5 Sign in with a credential | ~~L~~ **M** | A | **Built November 11 2026, at review.** The D-33 log entry was still outstanding; built ahead of it at the owner's direction |
 | 1.6 Scope every student view to the signed-in user | M | A | After 1.5 |
 | 1.7 Sign out and end the session | S | A | After 1.5 |
 
@@ -143,7 +146,7 @@ Lane B   7.7 Depth study + last phrase on the advisee row  ->  7.6 Search the ad
 Lane A   D-33 log entry -> 1.5 Sign in -> 1.6 Ownership check -> 1.7 Sign out
 ```
 
-**Lanes B and C start today.** Lane A starts the moment the D-33 running-log entry exists; it is
+**Lanes B and C start today.** ~~Lane A starts the moment the D-33 running-log entry exists~~ — **all three lanes were built on November 11 2026**, Lane A ahead of that entry at the owner's direction. Original plan: Lane A starts the moment the D-33 running-log entry exists; it is
 no longer waiting on a decision, only on its record. Four notes:
 
 1. **3.6 is its own lane because it shares no file with the other two.** It is

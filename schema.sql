@@ -47,6 +47,14 @@ CREATE TABLE app_user (
     role        TEXT    NOT NULL CHECK (role IN ('student', 'advisor')),
     student_id  INTEGER REFERENCES student(student_id),
     advisor_id  INTEGER REFERENCES advisor(advisor_id),
+    -- D-33: a credential, not a name picked off a public list. PBKDF2-HMAC via
+    -- the standard library (auth.py), so no dependency is added (AR1).
+    -- The salt is per user, so a shared password is not a shared hash. The
+    -- iteration count is stored per row rather than fixed in code, so it can be
+    -- raised later without invalidating credentials already issued.
+    password_hash       TEXT,
+    password_salt       TEXT,
+    password_iterations INTEGER,
     -- a login points at exactly one person record, matching its role
     CHECK ((role = 'student' AND student_id IS NOT NULL AND advisor_id IS NULL)
         OR (role = 'advisor' AND advisor_id IS NOT NULL AND student_id IS NULL))

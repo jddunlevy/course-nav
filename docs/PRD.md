@@ -118,7 +118,7 @@ exists to prevent and the only metric with a hard floor.
 
 One term, one institution, two roles. Requirement tagging, outstanding-requirement tracking,
 phrase-driven ranking grounded in the real offered list, double-count surfacing, the advisor
-views, the uncertainty flags and seminar themes. Covers FR1–FR34.
+views, the uncertainty flags and seminar themes. Covers FR1–FR35.
 
 ### Growth Features (Post-MVP)
 
@@ -243,6 +243,7 @@ why it is never pitched on frustration (**D-14**).
 
 - FR33: A user signs in as either a student or an advisor, and sees the view for that role. (**D-20**, **F-40**)
 - FR34: A student has exactly one advisor. The student records person has no role in the system. (**D-25**, **F-39**)
+- FR35: A user proves who they are with a credential before any record is shown; no route but the sign-in page serves student or advisor data without a session. (**D-33**, added November 11 2026 — the role picker satisfied FR33 without one, and was a public index of who exists with a working link into each record)
 
 ---
 

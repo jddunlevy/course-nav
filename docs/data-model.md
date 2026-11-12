@@ -51,6 +51,9 @@ erDiagram
         TEXT role "NOT NULL CHECK student|advisor"
         INTEGER student_id FK "nullable, must match role"
         INTEGER advisor_id FK "nullable, must match role"
+        TEXT password_hash "PBKDF2-HMAC-SHA256, hex (D-33)"
+        TEXT password_salt "per user, hex (D-33)"
+        INTEGER password_iterations "stored per row so cost can be raised (D-33)"
     }
     gen_ed_bucket {
         INTEGER bucket_id PK
@@ -157,7 +160,7 @@ erDiagram
 
 | Group | Tables | Rows loaded |
 |---|---|---|
-| People and access | `advisor`, `student`, `app_user` | 1 / 3 / 4 (seeded) |
+| People and access | `advisor`, `student`, `app_user` | 2 / 5 / 7 (seeded) |
 | Requirements | `gen_ed_bucket`, `requirement`, `requirement_bucket` | 12 / 13 / 13 |
 | Catalog | `course`, `course_offering`, `offering_attribute` | 3,324 / 9,621 / 7,414 |
 | Student record | `completed_course`, `completed_course_bucket` | 72 / 48 (seeded) |

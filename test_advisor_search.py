@@ -22,6 +22,10 @@ import os
 import re
 
 os.environ.setdefault("NAVIGATOR_RANKER", "tfidf")
+# Story 1.5: every route needs a session now, and the app refuses to boot
+# without a real secret. Set one for the suite, then sign in below.
+os.environ.setdefault("NAVIGATOR_SECRET_KEY",
+                      "testsuite-" + "a1b2c3d4" * 8)
 
 import app as appmod
 import db
@@ -69,6 +73,10 @@ def main():
     passed = True
     conn = db.connect()
     client = appmod.app.test_client()
+    # Story 1.5 (D-33): unauthenticated requests are served the sign-in
+    # page, so the suite signs in as the advisor whose screen it tests.
+    client.post("/signin",
+                data={"username": "dwhitfield", "password": "navigator"})
 
     dana = db.advisees(conn, DANA)
     marcus = db.advisees(conn, MARCUS)
@@ -152,8 +160,12 @@ def main():
     # early on an empty id list rather than issuing an IN () query. So the
     # difference against the no-match page is the roll-ups PLUS that one query.
     PHRASE_Q = 1
+    # Story 1.6 scopes /advisor/<id> to that advisor, so Marcus's page has to
+    # be measured as Marcus -- as Dana it is now a 404 and costs nothing.
+    marcus_client = appmod.app.test_client()
+    marcus_client.post("/signin", data={"username": "mbell", "password": "navigator"})
     passed &= check("AC6 one advisee costs ten roll-up SELECTs, plus one phrase query",
-                    count_selects(client, "/advisor/{}".format(MARCUS)) - none_q,
+                    count_selects(marcus_client, "/advisor/{}".format(MARCUS)) - none_q,
                     PER_ADVISEE + PHRASE_Q)
     passed &= check("AC6 a narrowed search skips the non-matching roll-ups",
                     all_q - one_q, PER_ADVISEE * (len(dana) - matched))
@@ -182,11 +194,15 @@ def main():
     appmod.app.jinja_env.undefined = jinja2.StrictUndefined
     appmod.app.jinja_env.cache = {}
     strict = []
-    for path in ["/advisor/{}".format(DANA), "/advisor/{}?q={}".format(DANA, frag),
-                 "/advisor/{}?q=qqzzxx".format(DANA), "/advisor/{}".format(MARCUS),
-                 "/advisor/{}?q=%25".format(DANA)]:
+    # /advisor/<MARCUS> is fetched with Marcus's client: Story 1.6 makes it a
+    # 404 for anyone else, which would say nothing about undefined fields.
+    for path, who in [("/advisor/{}".format(DANA), client),
+                      ("/advisor/{}?q={}".format(DANA, frag), client),
+                      ("/advisor/{}?q=qqzzxx".format(DANA), client),
+                      ("/advisor/{}".format(MARCUS), marcus_client),
+                      ("/advisor/{}?q=%25".format(DANA), client)]:
         try:
-            got = client.get(path)
+            got = who.get(path)
             if got.status_code != 200:
                 strict.append("{} -> {}".format(path, got.status_code))
         except jinja2.UndefinedError as e:

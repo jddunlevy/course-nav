@@ -1,16 +1,19 @@
 """Course Navigator -- Flask prototype.
 
-Two roles, student and advisor (D-20, D-25). There is no auth provider and no
-password: v1 deliberately does not over-build, and the role split is what matters
-for the demo, not the security model.
+Two roles, student and advisor (D-20, D-25). Signing in takes a credential
+(D-33, Story 1.5): the role picker that stood in for authentication is gone, and
+every route but the sign-in page requires a session. AR16 is reversed.
 
     python app.py      ->  http://127.0.0.1:5000
 """
 
 import os
 
-from flask import Flask, abort, redirect, render_template, request, url_for
+from flask import (Flask, abort, g, redirect, render_template, request,
+                   session, url_for)
 
+import auth
+import config
 import db
 import rank
 import rank_llm
@@ -29,7 +32,104 @@ RANKER = os.environ.get("NAVIGATOR_RANKER", "auto")
 DISPLAY_LIMIT = 40
 
 app = Flask(__name__)
+# Read at import, not lazily: a missing or default secret must stop the process
+# rather than surface later as a forgeable session (Story 1.5, AC 5). config
+# raises MissingSecret, a SystemExit, with instructions for generating one.
+app.secret_key = config.secret_key()
+
+# Everything else requires a session. `static` is exempt or the sign-in page
+# renders unstyled; `signin` is exempt or there is no way in.
+PUBLIC_ENDPOINTS = {"static", "signin"}
+
 _index = None
+
+
+@app.before_request
+def require_sign_in():
+    """Serve the sign-in page for any unauthenticated request (AC 1).
+
+    Served, not redirected: the criterion says the sign-in page is served, and
+    keeping the requested URL lets `next` return the user where they were going
+    after they sign in. The response carries no student or advisor data at all.
+    """
+    if request.endpoint in PUBLIC_ENDPOINTS:
+        return None
+    conn = db.connect()
+    try:
+        user = auth.current_user(conn)
+    finally:
+        conn.close()
+    if user is None:
+        return render_template(
+            "signin.html", term_label=TERM_LABEL, signed_out=None,
+            next_url=request.full_path if request.query_string else request.path), 401
+    g.user = user
+    return None
+
+
+@app.context_processor
+def inject_signed_in_user():
+    """The header names the signed-in user on every page (AC 4, UX-DR5)."""
+    return {"signed_in_user": getattr(g, "user", None)}
+
+
+@app.after_request
+def never_cache_private_pages(response):
+    """No signed-in page may sit in the browser cache (Story 1.7, AC 2).
+
+    Clearing the session only stops the SERVER answering. The threat this story
+    names is a shared advising-office machine, and a cached page is served by
+    the browser itself -- the next person presses Back and reads the record
+    without a request ever reaching Flask. `/static` is left cacheable: the
+    stylesheet is not private.
+    """
+    if request.endpoint != "static":
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+
+@app.route("/signout", methods=["POST"])
+def signout():
+    """End the session (Story 1.7).
+
+    POST only. A GET sign-out fires from anything that fetches a URL -- a
+    prefetching browser, an `<img src="/signout">` on any page the user
+    visits -- which logs people out at a distance.
+
+    Redirects to a BARE /signin with no `next`. Carrying `next` would send the
+    next person who signs in straight back into the previous user's acting-as
+    view, which is exactly what AC 3 forbids.
+    """
+    auth.logout()
+    return redirect(url_for("signin", signed_out=1))
+
+
+@app.route("/signin", methods=["GET", "POST"])
+def signin():
+    error = None
+    next_url = request.values.get("next") or ""
+    if request.method == "POST":
+        conn = db.connect()
+        try:
+            user = auth.authenticate(conn, request.form.get("username"),
+                                     request.form.get("password"))
+        finally:
+            conn.close()
+        if user is not None:
+            auth.login(user)
+            # Only same-site relative paths, so `next` cannot be turned into an
+            # open redirect to another host.
+            if next_url.startswith("/") and not next_url.startswith("//"):
+                return redirect(next_url)
+            endpoint, kwargs = auth.home_endpoint_for(user)
+            return redirect(url_for(endpoint, **kwargs))
+        # AC 3: one message for both halves. Saying which was wrong turns the
+        # form into a way to find out which usernames exist.
+        error = "Sign-in failed. Check your username and password."
+    return render_template("signin.html", error=error, next_url=next_url,
+                           signed_out=request.args.get("signed_out"),
+                           term_label=TERM_LABEL)
 
 
 def get_index():
@@ -46,25 +146,32 @@ def get_index():
 
 @app.route("/")
 def home():
-    conn = db.connect()
-    users = conn.execute("""
-        SELECT u.user_id, u.display_name, u.role, u.student_id, u.advisor_id,
-               s.classification
-        FROM app_user u
-        LEFT JOIN student s ON s.student_id = u.student_id
-        ORDER BY u.role DESC, u.display_name
-    """).fetchall()
-    conn.close()
-    return render_template("home.html", users=users, term_label=TERM_LABEL)
+    """Open the signed-in user's own view (AC 2).
+
+    This used to list every `app_user` for the caller to pick from. D-33 removed
+    the picker outright rather than keeping it as a bypass: a public list of who
+    exists, each name a working link into their record, was the thing the
+    credential is for. `base.html` still links here, so the endpoint stays.
+    """
+    endpoint, kwargs = auth.home_endpoint_for(g.user)
+    return redirect(url_for(endpoint, **kwargs))
 
 
 @app.route("/student/<int:student_id>")
 def student_view(student_id):
+    # Story 1.6: the student, or their advisor of record (D-25). The refusal is
+    # abort(404) and not 403 on purpose -- see the note on _results_page.
+    if not auth.current_may_view_student(student_id):
+        abort(404)
     return _results_page(student_id, viewer_role="student")
 
 
 @app.route("/advisor/<int:advisor_id>")
 def advisor_view(advisor_id):
+    # Story 1.6, AC 4: a student requesting an advisor route gets the same
+    # response as a request for an advisor who does not exist.
+    if not auth.may_view_advisor(g.user, advisor_id):
+        abort(404)
     conn = db.connect()
     advisor = conn.execute("SELECT * FROM advisor WHERE advisor_id = ?",
                            (advisor_id,)).fetchone()
@@ -98,6 +205,13 @@ def advisor_view(advisor_id):
 
 @app.route("/advisor/<int:advisor_id>/student/<int:student_id>")
 def advisor_student_view(advisor_id, student_id):
+    # BOTH ids are attacker-controlled and both are checked. Checking only the
+    # advisor half would let any advisor read any student by putting their own
+    # id in the first segment; checking only the advisee half would let them
+    # name someone else in it.
+    if not (auth.may_view_advisor(g.user, advisor_id)
+            and auth.current_may_view_student(student_id)):
+        abort(404)
     return _results_page(student_id, viewer_role="advisor", advisor_id=advisor_id)
 
 
@@ -166,12 +280,12 @@ def _results_page(student_id, viewer_role, advisor_id=None):
         # is always exactly 1.0 whenever any raw cosine is nonzero.
         matched = groups["counts"]["relevant"] > 0
 
-        actor = conn.execute(
-            "SELECT user_id FROM app_user WHERE {} = ?".format(
-                "advisor_id" if viewer_role == "advisor" else "student_id"),
-            (advisor_id if viewer_role == "advisor" else student_id,)).fetchone()
-        if actor:
-            db.save_search(conn, student_id, actor["user_id"], TERM, phrase, groups)
+        # Story 1.6, AC 6: the actor is whoever is signed in. This used to be a
+        # SELECT for the app_user owning the id in the PATH, which answers "who
+        # is this page about" rather than "who asked for it" -- identity by
+        # assertion. The two coincide except in the one case the audit trail
+        # most needs right: an advisor searching on a student's behalf (FR29).
+        db.save_search(conn, student_id, g.user["user_id"], TERM, phrase, groups)
 
     recent = conn.execute("""
         SELECT phrase, created_at FROM search_request
@@ -208,7 +322,9 @@ if __name__ == "__main__":
             "  python ingest.py --reset\n"
             "  python seed.py\n"
             "  python descriptions.py --from-csv")
-    # use_reloader=False: on Python 3.14 the watchdog reloader picks up changes
-    # inside the standard library and restarts in a loop, so the server never
-    # settles. Debug error pages are kept; only the file watcher is off.
-    app.run(debug=True, port=5000, use_reloader=False)
+    # debug=False since Story 1.5: the Werkzeug debugger executes arbitrary
+    # code through the browser on any traceback, which cannot sit beside a
+    # credential store. It was already running with use_reloader=False, because
+    # on Python 3.14 the watchdog reloader picks up changes inside the standard
+    # library and restarts in a loop, so nothing is lost but the error pages.
+    app.run(debug=False, port=5000, use_reloader=False)
