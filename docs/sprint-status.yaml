@@ -57,9 +57,10 @@
 #   - 7.7 now precedes 7.6. epics.md had the dependency inverted and the line was corrected.
 #
 # ROLL-UP, 39 stories, after Story 3.6 was implemented on 11-11-2026:
-#   done 13 · review 1 · in-progress 9 · ready-for-dev 2 · backlog 12 · dropped 1 · superseded 1
-#   3.6 is at 'review' -- the only story this file has ever put there. 3.5 and 8.6 moved to
-#   done because 3.6 fixed them. 1.5 waits only on its running-log entry; 7.7 is startable.
+#   done 14 · review 0 · in-progress 9 · ready-for-dev 2 · backlog 12 · dropped 1 · superseded 1
+#   3.6 was the only story this file has ever put at 'review'; it cleared review on 11-11-2026
+#   and is now done. 3.5 and 8.6 moved to done because 3.6 fixed them. 1.5 waits only on its
+#   running-log entry; 7.7 is startable.
 
 generated: 11-11-2026
 last_updated: 11-11-2026
@@ -92,7 +93,7 @@ development_status:
   3-3-surface-sections-that-close-two-or-more-requirements: in-progress      # re-read Nov 11: two buckets of the same requirement still credited twice -- UNCHANGED by the landed work. FR12 narrowed by D-35. Cleanup pass
   3-4-collapse-duplicate-sections-to-one-course: done
   3-5-be-told-plainly-when-my-phrase-matched-nothing: done                   # fixed by 3.6. Detection at app.py:136 (counts.relevant > 0, the strengthened FR15 test); the callout and a distinct empty state now render, and no replacement vocabulary is suggested (D-17)
-  3-6-render-the-result-groups: review                                       # IMPLEMENTED Nov 11: templates/results.html rewritten (one card macro, three lists), static/style.css, and app.py -- the uncertain rows had to be selected pre-cap, which was not in the spec. 32 rendered-HTML assertions pass across 3 students x 4 phrases. One stated deviation: the uncertain block is absent when empty rather than carrying an empty state -- see the story in epics.md
+  3-6-render-the-result-groups: done                                         # IMPLEMENTED + REVIEWED Nov 11: templates/results.html rewritten (one card macro, three lists), static/style.css, and app.py -- the uncertain rows had to be selected pre-cap, which was not in the spec. Reviewed against an independent harness recomputing expectations from rank.py: 61/62 checks, 12/12 renders clean, StrictUndefined clean. The single failure was stale AC wording, not code -- the browse summary states counts["browse"] (472), not counts["requirement_only"] (480), because Q-2 moved the uncertain rows out of that list; AC amended in epics.md and in the ranker spec's AC 3(a). Spec AC 1,2,3,4,7,11 ticked. One stated deviation: the uncertain block is absent when empty rather than carrying an empty state -- see the story in epics.md
   epic-3-retrospective: optional
 
   epic-4: in-progress   # Trust the AI's ordering  *(core AI feature)*
@@ -128,7 +129,7 @@ development_status:
   8-1-put-colour-type-and-spacing-behind-tokens: in-progress                 # literal colours remain; type scale not tokenised
   8-2-meet-wcag-2-1-aa: in-progress                                          # phrase input is not the first tab stop; dark palette unaudited
   8-3-stop-truncating-the-fields-the-product-exists-to-surface: in-progress  # missing instructor renders blank, not a placeholder
-  8-4-give-every-list-a-designed-empty-state: done                           # 3.6 takes UX-DR18 from three variants to five; 7.6 adds a sixth
+  8-4-give-every-list-a-designed-empty-state: done                           # 3.6 takes UX-DR18 from three variants to four (the browse-list gap state is the one addition; the FR15 state is UX-DR18's existing "no phrase match"); 7.6 adds a fifth. UX Design.md:208 still says three -- amendment routed to the PRD/UX pass
   8-5-reflow-rather-than-scroll-sideways: in-progress                        # no 1024px breakpoint; .scroll-x applied to nothing
   8-6-make-reranking-visible-rather-than-silent: done                        # fixed by 3.6 (Task 11). The provenance line now states that ordering is topical only, that closure is badged rather than scored, and that the requirement-only set was not reordered (TD-12). FR18 dropped-CRN count unchanged. UX-DR35's "deterministic first, then refine" still not built; no criterion asks for it
   epic-8-retrospective: optional

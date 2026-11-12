@@ -1096,23 +1096,36 @@ I want the page to show the courses the ranker actually found,
 So that I am not told "0 ranked courses" above fifty-five that matched.
 
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — not the Jinja2, which is ordinary, but the honesty of the copy. Three sets have to be labelled for what they are, one of them is a browse list masquerading as a search result, and every count on the page can be either pre-cap or post-cap and must say which.
-**Covers:** FR11 (as amended), FR12 (as narrowed), FR15 (as strengthened), FR18 · **UX:** UX-DR11, UX-DR16, UX-DR18 — this adds two variants to its stated three — UX-DR34 · **Decisions:** D-17, D-19, **D-21** — Q-2's answer is what keeps it, **D-35**
+**Covers:** FR11 (as amended), FR12 (as narrowed), FR15 (as strengthened), FR18 · **UX:** UX-DR11, UX-DR16, UX-DR18 — this adds one variant to its stated three — UX-DR34 · **Decisions:** D-17, D-19, **D-21** — Q-2's answer is what keeps it, **D-35**
 **Implements:** Tasks 10 and 11, and AC 1–4, 7 and 11, of
 `docs/specs/tech-spec-relevance-requirement-separation.md`. Tasks 1–9, 12–14 landed at `065d496`.
 **Depends on:** nothing. The ranker, the grouping, the reranker and the persistence are all in.
-**Status:** **Implemented November 11 2026 — at review.** `templates/results.html` rewritten
+**Status:** **Done — implemented and reviewed November 11 2026.** `templates/results.html` rewritten
 (one `result_card` macro feeding three lists, so they cannot diverge), `static/style.css`, and
 **`app.py`** — the uncertain rows had to be selected before `DISPLAY_LIMIT`, which this story's
 spec did not anticipate. Verified by 32 assertions against rendered HTML across three students
-and four phrases, with `NAVIGATOR_RANKER=tfidf`.
+and four phrases, with `NAVIGATOR_RANKER=tfidf`. **Reviewed November 11 2026** against a
+second harness written from the criteria alone, which recomputes every expected value from
+`rank.py` instead of reading it from this story: 63 checks, all passing, and all 12 renders
+clean. Exactly one substantive failure stood between the first run and that result, and it was
+this document's wording rather than the code — the browse-summary criterion below asked for a
+number the page should not print. Three other first-pass failures were defects in the review
+harness itself, not in the page. That review also re-rendered all 15 pages under
+`jinja2.StrictUndefined`, the trap that let this page lie for two commits, and found exactly
+one undefined access
+(`meta.fallback_from`, on the TF-IDF path) — a deliberate falsy optional, not a hole; every
+field the row macro reads is present on 571 of 571 ranker rows.
 **Added:** sprint 1, November 11 2026, once D-35 answered Q-1 and Q-2 and unblocked Tasks 10–11.
 
 **One deviation from the criteria below, stated rather than quietly taken.** The last criterion
 asks for an empty state on the uncertain block. It does not have one: when no uncertain row
 closes anything the block is **absent**, not empty. For student 1 that is every search, and
 rendering "no courses here have undetermined topics" on every page would be noise asserting a
-non-answer. UX-DR18 therefore goes from three variants to **four**, not five — the ranked list's
-FR15 empty state and the browse list's gap state are the two added. The uncertainty callout
+non-answer. UX-DR18 therefore goes from three variants to **four**, not five — the browse list's
+gap state is the single variant added. *(Corrected November 11 2026: an earlier draft of this
+note counted the ranked list's FR15 empty state as a second addition. It is not one —
+UX-DR18's first stated variant is already "no phrase match", which is exactly that state. The
+conclusion of four was right; only the arithmetic behind it was wrong.)* The uncertainty callout
 follows the same rule and is absent at zero, which the criterion above does require.
 
 **Why this is a story and not untracked repair.** It is the largest gap between this document
@@ -1167,8 +1180,14 @@ near phrase-invariant: 480 rows for student 2 on "climate policy" and 480 on "st
 
 **Given** the requirement-only set is capped for display
 **When** its summary renders
-**Then** it states both the number shown and `counts["requirement_only"]`, and does not present
-them as equal when they differ — 40 against 480 for student 2.
+**Then** it states both the number shown and `counts["browse"]`, and does not present them as
+equal when they differ — 40 against 472 for student 2. *(Corrected November 11 2026, in review:
+this criterion said `counts["requirement_only"]` and 480. The code renders 472 and is right.
+`requirement_only` is 480 only if the 8 uncertain rows are inside this list, and Q-2's answer
+moved them out of it and above it — so 480 would claim the collapsed list holds rows it does
+not. The two figures differ by exactly the uncertain count, which is why the spec's companion
+figure of 64 for student 1, who has none, needed no change. The page states the 8 separately,
+so all 480 are still accounted for. Same correction applied to the ranker spec's AC 3(a).)*
 
 **Given** a search for "rockets and propulsion", for which nothing clears `RELEVANCE_FLOOR`
 **When** the page renders
@@ -1193,7 +1212,10 @@ as grouping and badging rather than as score, and that the requirement-only set 
 **Given** the relevant list is empty, or the uncertain block is empty
 **When** the page renders
 **Then** each has its own designed empty state (UX-DR34), taking UX-DR18 from three variants to
-five — a component-contract change this story owns.
+four — a component-contract change this story owns. **Met for the relevant list only**, as the
+deviation note above states: the uncertain block has no empty state, because at zero the block
+is absent rather than empty. UX Design.md:208 still names three variants and needs the
+amendment this criterion describes; that edit is routed to the PRD/UX pass, not taken here.
 
 ---
 
