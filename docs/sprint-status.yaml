@@ -57,7 +57,7 @@
 #   - 7.7 now precedes 7.6. epics.md had the dependency inverted and the line was corrected.
 #
 # ROLL-UP, 39 stories, after Story 3.6 was implemented on 11-11-2026:
-#   done 14 · review 0 · in-progress 9 · ready-for-dev 2 · backlog 12 · dropped 1 · superseded 1
+#   done 14 · review 2 · in-progress 9 · ready-for-dev 1 · backlog 11 · dropped 1 · superseded 1
 #   3.6 was the only story this file has ever put at 'review'; it cleared review on 11-11-2026
 #   and is now done. 3.5 and 8.6 moved to done because 3.6 fixed them. 1.5 waits only on its
 #   running-log entry; 7.7 is startable.
@@ -120,8 +120,8 @@ development_status:
   7-3-check-a-proposed-term-against-every-outstanding-requirement-at-once: backlog
   7-4-confirm-or-reject-proposed-depth-study-candidates: backlog
   7-5-warn-when-nothing-offered-can-close-a-requirement: backlog
-  7-6-find-an-advisee-by-name: backlog                                       # after 7.7, which builds the row component. Startable before Lane A, but its THIRD criterion (a non-advisee must not appear) ships unmet until 1.5/1.6 land -- write it in as unmet, do not tick it
-  7-7-see-what-each-advisee-is-working-on-in-the-search-result: ready-for-dev # PRECEDES 7.6 (epics.md had this inverted; corrected Nov 11). Both fields exist; no decision dependency of any kind
+  7-6-find-an-advisee-by-name: review                                        # IMPLEMENTED Nov 11 after 7.7, reusing its row. db.advisees takes an optional name filter ANDed into the SAME query as advisor_id, so scope is structural, not a second step; LIKE wildcards escaped. AC 6 MEASURED, not asserted: outstanding_buckets is 10 SELECTs/student, and a narrowed search now skips the non-matching roll-ups (41 fewer statements on a no-match page). AC 3 is SPLIT and NOT ticked -- scoping verified against a seeded second advisor (Marcus Bell / Priya Raman, the fixture that made it testable at all), with the no-match empty state byte-identical for a real non-advisee and for a name nobody has; ENFORCEMENT still unmet, nothing stops anyone opening /advisor/2. Closed by 1.5/1.6. test_advisor_search.py, 31 assertions
+  7-7-see-what-each-advisee-is-working-on-in-the-search-result: review       # IMPLEMENTED Nov 11: templates/advisor.html (both fields stacked in the Student cell, not two new columns -- Story 8.5 records this .grid as unwrapped by .scroll-x, so wider columns would scroll the page body against UX-DR33), app.py advisor_view, db.recent_phrases (one query for the whole advisee set, not per-advisee: the existing outstanding_buckets N+1 is what 7.6's last criterion must answer for), seed.py. AC 2/3/4 had NO exercisable fixture -- all three advisees had a label and had searched, and seed.py wipes search_request -- so the story seeded a fourth advisee (Noor Haddad, NULL label, no searches) and a deterministic SEARCHES map graded 3/2/1/0. First committed page-level test: test_advisor_row.py, 30 assertions incl. StrictUndefined over 9 pages
   7-8-show-a-degree-progress-indicator-in-the-search-result: dropped         # DROPPED Nov 11 2026: numeric_progress reads 482% for the seeded senior; defect routed to cleanup
   epic-7-retrospective: optional
 
@@ -129,7 +129,7 @@ development_status:
   8-1-put-colour-type-and-spacing-behind-tokens: in-progress                 # literal colours remain; type scale not tokenised
   8-2-meet-wcag-2-1-aa: in-progress                                          # phrase input is not the first tab stop; dark palette unaudited
   8-3-stop-truncating-the-fields-the-product-exists-to-surface: in-progress  # missing instructor renders blank, not a placeholder
-  8-4-give-every-list-a-designed-empty-state: done                           # 3.6 takes UX-DR18 from three variants to four (the browse-list gap state is the one addition; the FR15 state is UX-DR18's existing "no phrase match"); 7.6 adds a fifth. UX Design.md:208 still says three -- amendment routed to the PRD/UX pass
+  8-4-give-every-list-a-designed-empty-state: done                           # 3.6 took UX-DR18 from three variants to four (the browse-list gap state is the one addition; the FR15 state is UX-DR18's existing "no phrase match"); 7.6 added the fifth, "no advisee matched". Both copies of the DR (UX Design.md:208, epics.md:482) now say five and list them
   8-5-reflow-rather-than-scroll-sideways: in-progress                        # no 1024px breakpoint; .scroll-x applied to nothing
   8-6-make-reranking-visible-rather-than-silent: done                        # fixed by 3.6 (Task 11). The provenance line now states that ordering is topical only, that closure is badged rather than scored, and that the requirement-only set was not reordered (TD-12). FR18 dropped-CRN count unchanged. UX-DR35's "deterministic first, then refine" still not built; no criterion asks for it
   epic-8-retrospective: optional

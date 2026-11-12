@@ -70,7 +70,16 @@ def advisor_view(advisor_id):
                            (advisor_id,)).fetchone()
     if not advisor:
         abort(404)
-    rows = db.advisees(conn, advisor_id)
+    # Story 7.6: the name query lives in the query string (UX-DR22), so an
+    # advisor can copy the URL and reopen the same result. Narrowing happens in
+    # the SQL below, before the outstanding_buckets loop -- that loop costs ten
+    # queries per advisee, and AC 6 is that non-matching advisees never pay it.
+    query = (request.args.get("q") or "").strip()
+    rows = db.advisees(conn, advisor_id, query)
+    # One query for every advisee's recent phrases (FR28 via Story 7.7). Fetched
+    # outside the loop deliberately: the per-advisee outstanding_buckets call
+    # below is already the N+1 that Story 7.6's last criterion has to answer for.
+    phrases = db.recent_phrases(conn, [s["student_id"] for s in rows])
     summary = []
     for s in rows:
         outstanding = db.outstanding_buckets(conn, s["student_id"])
@@ -78,10 +87,13 @@ def advisor_view(advisor_id):
             "student": s,
             "open_count": sum(1 for r in outstanding if not r["satisfied"]),
             "open_names": [r["name"] for r in outstanding if not r["satisfied"]],
+            # [] when the student has never searched -- recent_phrases omits
+            # them rather than mapping them to empty, so AC 4 is a real absence.
+            "recent_phrases": phrases.get(s["student_id"], []),
         })
     conn.close()
     return render_template("advisor.html", advisor=advisor, summary=summary,
-                           term_label=TERM_LABEL)
+                           query=query, term_label=TERM_LABEL)
 
 
 @app.route("/advisor/<int:advisor_id>/student/<int:student_id>")

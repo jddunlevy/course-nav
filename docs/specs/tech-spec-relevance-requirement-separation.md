@@ -760,24 +760,30 @@ asserted by both test files; its provenance-line half is Task 11.
 **AC 2, AC 3 and AC 11 were rewritten** against the Q-1 and Q-2 answers; the superseded wording
 is noted inline.
 
-- [ ] AC 1: Given student 1 and "climate policy" with `NAVIGATOR_RANKER=tfidf`, when the
+- [x] AC 1: **PASSING — verified against rendered HTML, 2026-11-11.** Given student 1 and "climate policy" with `NAVIGATOR_RANKER=tfidf`, when the
   page renders, then group 1 leads with PSC 664 Public Policy Analysis, and neither
   BSC 471 (0.2352) nor MLC 362 (0.1729) appears in it.
-- [ ] AC 2: **Rewritten under Q-1 (b).** Given the same search, when a course that both
+- [x] AC 2: **Rewritten under Q-1 (b). PASSING — verified 2026-11-11.** Given the same search, when a course that both
   clears `RELEVANCE_FLOOR` and closes an outstanding bucket renders, then it appears
   **once**, as a group-1 row carrying a badge naming what it closes — and no separate
   dual-fit section exists on the page. `groups["both"]` is still derived and still
   persisted with `result_group = 'both'`, so the set stays queryable without being a
   section. *(Superseded wording: "when group 2 renders, then every row in it closes at
   least one outstanding bucket and also appears in the displayed group 1.")*
-- [ ] AC 3: **Extended under Q-2 (b) and the phrase-invariance finding.** Given the same
+- [x] AC 3: **Extended under Q-2 (b) and the phrase-invariance finding. PASSING as amended — verified 2026-11-11.** Given the same
   search, when the collapsed group renders, then (a) its summary states both the number
-  shown and the true total (64 for student 1, 480 for student 2) and does not present them
-  as equal when they differ; (b) it is headed as a **browse list** — courses that close
+  shown and this list's own pre-cap total — `counts["browse"]`, which is `requirement_only`
+  minus the uncertain rows that clause (c) below removes from it: 64 for student 1, **472**
+  for student 2 — and does not present them as equal when they differ; *(amended
+  2026-11-11, in Story 3.6's review. This clause said "the true total … 480 for student 2",
+  which contradicted clause (c) added beside it under Q-2 (b): a list that excludes the 8
+  uncertain rows does not hold 480. The rendered page says 472 and separately states that
+  the 8 are listed above, so the full 480 remains accounted for. Student 1's 64 was always
+  correct because that student has no uncertain rows.)* (b) it is headed as a **browse list** — courses that close
   outstanding requirements — carrying no reference to the phrase and stating that it is not
   ranked against what was typed; and (c) the uncertain-and-closing rows are **not** inside
   it, having been surfaced uncollapsed above (AC 11).
-- [ ] AC 4: Given student 1 and "storytelling" with `NAVIGATOR_RANKER=tfidf`, when group
+- [x] AC 4: **PASSING — verified 2026-11-11.** Given student 1 and "storytelling" with `NAVIGATOR_RANKER=tfidf`, when group
   1 renders, then its rows are in non-increasing `relevance_score` order and AAST 300,
   AAST 352, AMS 345, ANT 411 and ANT 412 — all `relevance_score == 0.00` — appear in
   none of it.
@@ -792,7 +798,7 @@ is noted inline.
   bucket data changes no row's position in group 1. Asserted by `test_rank.py`: "closing
   two buckets does not lift a row in relevant", "removing bucket data changes no position
   in relevant".
-- [ ] AC 7: Given "rockets and propulsion", for which no course clears the floor, when
+- [x] AC 7: **PASSING — verified 2026-11-11.** Given "rockets and propulsion", for which no course clears the floor, when
   the page renders, then the FR15 callout is shown, group 1 renders its empty state, and
   no requirement-only row is presented as a result for the phrase.
 - [ ] AC 8: Given `NAVIGATOR_RANKER=llm` and student 1 / "climate policy", when a search
@@ -804,7 +810,7 @@ is noted inline.
 - [ ] AC 10: Given the reranker raises any exception, when the page renders, then the
   deterministic grouping is served with every group intact, the `groups` dict passed in
   is unmodified, and the provenance line says the reranker was unavailable.
-- [ ] AC 11: **Rewritten under Q-2 (b).** Given student 2 and a section flagged
+- [x] AC 11: **Rewritten under Q-2 (b). PASSING — verified 2026-11-11.** Given student 2 and a section flagged
   `topic_uncertain` that closes an outstanding bucket, when the page renders, then it
   appears **uncollapsed**, in the uncertain block above the browse list, with its closure
   stated and its uncertainty flag shown — not behind a `<details>`. The set is 8 rows for

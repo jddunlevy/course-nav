@@ -447,3 +447,28 @@ footer {
 }
 /* Wide content scrolls inside its own container, never the page body. */
 .scroll-x { overflow-x: auto; }
+
+/* --------------------------------- 15. AdviseeRow extras (UX-DR19, FR28)
+   Story 7.7. The depth study and the student's recent phrases stack inside the
+   Student cell rather than claiming two more columns: the table is already five
+   wide, UX-DR25 forbids truncating either field, and at seven it would deepen a
+   defect already on the books: Story 8.5 records this `.grid` as unwrapped by
+   `.scroll-x`, so wide columns here scroll the page body, which UX-DR33 forbids. */
+
+.advisee-meta { margin-top: var(--sp-2); font-size: 13px; line-height: 1.45; }
+
+.meta-label {
+  display: block;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* The student's own words, set apart from the UI's own voice (D-22). */
+.own-words { color: var(--ink); }
+
+/* An absent value is stated, never left blank (UX-DR34). Italic and dim so it
+   does not read as something the student actually typed. */
+.not-recorded { color: var(--ink-dim); font-style: italic; }

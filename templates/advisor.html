@@ -6,7 +6,27 @@
 <p class="note">
   Advisees. One advisor per student (D-25). Guidance here is informal &mdash;
   there is no approval step until the third-year review (D-26).
+  The depth study and the searches shown are each student's <strong>own words</strong>
+  &mdash; a working label they chose and the phrases they typed. Nothing here judges
+  whether the two fit each other, or whether any course fits either; ranking never reads
+  the label (D-22). That reading stays yours.
 </p>
+
+{# 16. AdviseeSearch — Story 7.6, UX-DR22. GET, so the query is in the URL and
+   the result is reproducible by reopening it. Mirrors the phrase search at
+   results.html:159 rather than inventing a second search idiom. #}
+<form method="get" class="search" role="search">
+  <label class="visually-hidden" for="q">Find an advisee by name</label>
+  <input id="q" type="text" name="q" value="{{ query }}" autocomplete="off"
+         placeholder="Find an advisee by name">
+  <button type="submit">Find</button>
+</form>
+{% if query %}
+<p class="note dim">
+  Showing advisees matching &ldquo;{{ query }}&rdquo;.
+  <a href="{{ url_for('advisor_view', advisor_id=advisor.advisor_id) }}">Show all</a>
+</p>
+{% endif %}
 
 {% if summary %}
 {# 15. AdviseeRow — UX-DR19 #}
@@ -14,7 +34,28 @@
   <tr><th>Student</th><th>Standing</th><th>Open</th><th>Requirements still open</th><th></th></tr>
   {% for row in summary %}
   <tr>
-    <td><strong>{{ row.student.name }}</strong></td>
+    <td>
+      <strong>{{ row.student.name }}</strong>
+      {# Story 7.7 / FR28. Both fields are the student's own words (D-22), so
+         each is labelled as a working note and neither is presented as a
+         confirmed programme of study (D-26) or as a judgment of fit (F-04). #}
+      <div class="advisee-meta">
+        <span class="meta-label">Working depth study</span>
+        {%- if row.student.depth_study_label %}
+        <span class="own-words">{{ row.student.depth_study_label }}</span>
+        {%- else %}
+        <span class="not-recorded">not recorded</span>
+        {%- endif %}
+      </div>
+      <div class="advisee-meta">
+        <span class="meta-label">They last searched for</span>
+        {%- if row.recent_phrases %}
+        {% for p in row.recent_phrases %}<span class="own-words">{{ p }}</span>{%- if not loop.last %}<span class="dim"> &middot; </span>{% endif %}{% endfor %}
+        {%- else %}
+        <span class="not-recorded">has not searched yet</span>
+        {%- endif %}
+      </div>
+    </td>
     <td>{{ row.student.classification }}</td>
     <td>
       <span class="mark {{ 'is-complete' if row.open_count == 0 else 'is-open' }}"
@@ -31,6 +72,17 @@
   </tr>
   {% endfor %}
 </table>
+{% elif query %}
+{# 14. EmptyState — UX-DR18, FIFTH variant (Story 3.6 took it to four): a name
+   search that matched none of this advisor's advisees. It states what the
+   search COVERS, never what it excluded -- saying a name is "not your advisee"
+   would confirm that the student exists, which Story 7.6's AC 3 forbids. #}
+<div class="empty">
+  <b>No advisee of yours matches &ldquo;{{ query }}&rdquo;</b>
+  This search covers your own advisees only. Check the spelling, or
+  <a href="{{ url_for('advisor_view', advisor_id=advisor.advisor_id) }}">show all
+  {{ advisor.name }}&rsquo;s advisees</a>.
+</div>
 {% else %}
 {# 14. EmptyState — UX-DR18, "no advisees" variant #}
 <div class="empty">

@@ -168,8 +168,8 @@ effects on them are recorded here and inline.
 | 1.5 Sign in with a credential | ~~L~~ **M** | **Supersedes** Story 1.1's first two acceptance criteria ("Given the role picker is open") and voids its sizing note, "no credential handling (AR16)". 1.1's header, acting-as and not-found criteria survive unchanged. **Resized L → M** by D-33: a local credential table on stdlib hashing is the M option. **Also removes the picker outright** rather than superseding it — `seed.py` gains known passwords so the four seeded users stay reachable |
 | 1.6 Scope every student view to the signed-in user | M | **Modifies** Story 7.2 — the advisor-for-student view needs an ownership check it does not have — and closes the hole that `/student/<id>` is readable by anyone who can type a number |
 | 1.7 Sign out and end the session | S | New. Nothing existing covers ending a session, because nothing existing starts one |
-| 7.6 Find an advisee by name | M | **Modifies** Story 7.1: the advisee list becomes the no-query state of a search rather than a screen of its own. **Modifies** Story 8.4 — a fourth empty-state variant, "no advisee matched", against UX-DR18's stated three |
-| 7.7 See what each advisee is working on | S | New. Reads `student.depth_study_label` and `search_request.phrase`, both of which exist and neither of which reaches the advisor screen. **Precedes 7.6**, not the reverse — it builds the row component 7.6 reuses |
+| 7.6 Find an advisee by name | M | **Implemented November 11 2026, at review, with AC 3 split rather than ticked.** **Modifies** Story 7.1: the advisee list is now the no-query state of a search rather than a screen of its own. **Modifies** Story 8.4 — the empty-state variant it adds, "no advisee matched", is UX-DR18's **fifth**, not its fourth: Story 3.6 took the DR to four first |
+| 7.7 See what each advisee is working on | S | **Implemented November 11 2026, at review.** Reads `student.depth_study_label` and `search_request.phrase`, both of which existed and neither of which reached the advisor screen. **Precedes 7.6**, not the reverse — it builds the row component 7.6 reuses. Added `db.recent_phrases`, a fourth seeded advisee and a deterministic `SEARCHES` fixture, without which three of its five criteria were unverifiable |
 | 3.6 Render the result groups | M | New, November 11 2026. Closes Tasks 10–11 of the ranker spec, which did not land with Tasks 1–9. **Fixes** Story 3.5's rendering and Story 8.6's stale provenance, and is what makes Stories 3.1–3.4 visible again. Carries the Q-1 and Q-2 answers |
 | ~~7.8 Show a degree-progress indicator~~ | — | **Dropped November 11 2026**, the day it was added. `db.numeric_progress` reads 482% for the seeded senior, so there was no honest figure to render. Nothing else depended on it |
 
@@ -479,8 +479,8 @@ scaffolding story here would be invented work in a graded backlog.
 - UX-DR15: Build `UncertaintyFlag` with two variants — unknown topic, and unknown seminar theme — each stating what is unknown and directing the user to their advisor.
 - UX-DR16: Build `RankProvenance` stating whether the order is deterministic or reranked and how many candidates validation discarded.
 - UX-DR17: Build `GapWarning` for a requirement no offered section can close.
-- UX-DR18: Build `EmptyState` with three variants: no phrase match, no advisees, no outstanding requirements.
-- UX-DR19: Build `AdviseeRow` showing the student, their classification, and a count of open requirements.
+- UX-DR18: Build `EmptyState` with **five** variants: no phrase match, no advisees, no outstanding requirements, nothing offered closes an outstanding requirement (added by Story 3.6), and no advisee matched the name searched (added by Story 7.6). *(Amended November 11 2026. The DR said three. Story 3.6 added the browse-list gap state, taking it to four — its FR15 state is this DR's existing "no phrase match", not a new variant — and Story 7.6 added the no-match state, taking it to five. A sixth, an empty state on the uncertain block, was considered and deliberately not built: at zero that block is absent rather than empty.)*
+- UX-DR19: Build `AdviseeRow` showing the student, their classification, and a count of open requirements. **Amended November 11 2026 by Story 7.7:** the row also carries the student's working depth-study label and their most recent interest phrases, both labelled as the student's own words and neither asserting a fit (D-22, D-26, F-04). They stack inside the Student cell rather than adding columns (UX-DR33; Story 8.5's note on this `.grid`).
 - UX-DR20: Build the advisor term-review screen at `/advisor/<id>/student/<id>/review`, checking a proposed term against every outstanding requirement in one pass.
 - UX-DR21: Render the student and advisor-for-student result views from a single template and code path so they cannot diverge.
 - UX-DR22: Make search results linkable — the phrase lives in the query string and a result URL can be shared with an advisor.
@@ -1510,7 +1510,7 @@ So that I can see who needs attention before the appointment.
 
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — reuses the Epic 1 computation per advisee.
 **Covers:** FR28 · **UX:** UX-DR19
-**Status:** Implemented — evidence in the status table above. **Modified by Stories 7.6 and 7.7:** the list becomes the no-query state of a search.
+**Status:** Implemented — evidence in the status table above. **Modified by Stories 7.6 and 7.7, both November 11 2026:** 7.7 added the depth-study label and recent phrases to each row, and 7.6 made this list the no-query state of a name search. Its own criteria are untouched by either: with no query the full list renders exactly as it did, which is 7.6's first criterion.
 
 **Acceptance Criteria:**
 
@@ -1630,9 +1630,37 @@ I want to type part of a student's name and get my matching advisees,
 So that I can open the right student during an appointment instead of reading the whole list.
 
 **MoSCoW:** Must · **Size:** M · **Why:** Complex — the advisee list is one flat table today; the search has to stay scoped to the signed-in advisor's own advisees and share one row component with the unsearched list, or the two will diverge.
-**Covers:** FR28 — extends it from a list to a search · **UX:** UX-DR19, UX-DR18 (a fourth variant), UX-DR22 — the query lives in the query string, as the phrase search's does
+**Covers:** FR28 — extends it from a list to a search · **UX:** UX-DR19, UX-DR18 (a fifth variant — Story 3.6 took it to four), UX-DR22 — the query lives in the query string, as the phrase search's does
 **Depends on:** Stories 1.5 and 1.6 for its third and fifth criteria — "my advisees" is not a defined set without a signed-in advisor — and on **Story 7.7** for the row component. 7.7 is built first.
-**Status:** Not started · Startable before Lane A at a stated cost: scoped to the advisor id in the route, which is what the application does today, the search works, but the **third criterion** (a non-advisee must not appear, and nothing may reveal they exist) cannot be met without a session. Starting early means writing that criterion into the status table as **unmet**, not ticking it. Lane A closes it. Modifies Story 7.1, which becomes the no-query state. Adds a variant to Story 8.4.
+**Status:** **Implemented November 11 2026 — at review, with the third criterion split rather
+than ticked.** `templates/advisor.html` (a GET search form and UX-DR18's fifth empty state),
+`app.py` (`advisor_view`), **`db.py`** (`advisees` takes an optional name filter) and
+**`seed.py`** (a second advisor). Verified by `test_advisor_search.py`, 31 assertions. Dev
+context: `docs/stories/story-7.6.md`. Modifies Story 7.1, which becomes the no-query state.
+Adds UX-DR18's fifth variant, not its fourth — Story 3.6 took the DR to four first.
+
+**The third criterion is two claims, and only one of them was reachable.** The sprint plan
+recorded it as unmet until Lane A because "my advisees" is not a defined set without a signed-in
+advisor. That is right about enforcement and wrong about scoping, and recording them as one
+thing loses the difference:
+
+- **Scoping — met and verified.** The advisor is named by the route, and the name filter is
+  ANDed into the same SQL query as `advisor_id`, so a non-advisee cannot be returned by
+  construction rather than by a second step a later refactor could drop. Verified against a
+  real non-advisee, which required seeding one: every student in the database belonged to the
+  only advisor, so before this story the criterion had nothing to query for. The no-match empty
+  state is identical for a real non-advisee and for a name nobody has — a page that said "not
+  your advisee" would leak the student's existence while passing a weaker test.
+- **Enforcement — unmet, and not ticked.** Nothing stops anyone opening `/advisor/2`. There is
+  no session and no ownership check. Stories 1.5 and 1.6 close it.
+
+**The sixth criterion was measured, not reasoned about.** `db.outstanding_buckets` issues
+exactly ten SELECTs per student (one requirement query plus one per bucket requirement),
+confirmed with `sqlite3`'s trace callback rather than by reading the code. Narrowing happens in
+SQL before the roll-up loop, so a search matching one of four advisees skips thirty statements
+and a search matching none skips forty-one — the extra one being `recent_phrases`, which
+returns early on an empty set. Filtering the list after the loop would have satisfied the second
+criterion on screen while failing this one silently, which is why the test counts statements.
 **Added:** sprint 1, November 11 2026.
 
 **Acceptance Criteria:**
@@ -1672,7 +1700,24 @@ So that I recognise the right student and know what they are pursuing before ope
 **MoSCoW:** Must · **Size:** S · **Why:** Complex — both fields already exist (`student.depth_study_label`, `search_request.phrase`) and neither is on the advisor screen. The care is in labelling them as the student's own words rather than as a system judgment (D-22).
 **Covers:** FR28 · **UX:** UX-DR19 · **Decisions:** D-22 — the depth study is a free-text working label and ranking never reads it; D-26 — nothing is approved before the third-year review · **Evidence:** F-04
 **Depends on:** nothing. **Depended on by Story 7.6**, which reuses the row component this story builds.
-**Status:** **Ready for dev** — the only sprint-1 story with no decision dependency at all.
+**Status:** **Implemented November 11 2026 — at review.** `templates/advisor.html`,
+`app.py` (`advisor_view`), **`db.py`** (`recent_phrases`, one query for the whole advisee set)
+and **`seed.py`** — the fixture, which this story's plan did not originally anticipate needing.
+Verified by `test_advisor_row.py`, 30 assertions against rendered HTML, the first committed
+page-level test in the project. Dev context: `docs/stories/story-7.7.md`.
+
+**Two fixture findings, stated rather than quietly absorbed.** AC 2 and AC 4 had no exercisable
+fixture: all three advisees had a depth-study label and had searched. A fourth advisee was
+seeded (Noor Haddad, `depth_study_label` NULL, no searches, no completed coursework). Then AC 3
+lost *its* fixture to the same fix — `seed.py` deletes `search_request` on every run, so after
+reseeding nobody had searched — which is why `seed.py` now carries a deterministic `SEARCHES`
+map graded 3 / 2 / 1 / 0 phrases. An acceptance criterion that depends on whoever last clicked
+around the app is not reproducible, and three of five criteria here did.
+
+**Rendered as two stacked fields inside the existing Student cell, not as two new columns.**
+The `.grid` is already five wide; UX-DR25 forbids truncating either field; and Story 8.5
+records this exact table as unwrapped by `.scroll-x`, so two more columns would scroll the page
+body and breach UX-DR33. Column count is unchanged.
 **Added:** sprint 1, November 11 2026. Dependency direction corrected November 11 2026: this
 story previously read "Depends on: Story 7.6", which inverted it. Both fields already exist
 (`student.depth_study_label`, `search_request.phrase`) and neither reaches the advisor screen,

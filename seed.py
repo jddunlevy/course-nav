@@ -11,8 +11,15 @@ course's attributes from the spring 2027 catalog.
 
 import db
 
+# Keep Dana Whitfield FIRST: advisor_id is assigned by insertion order and the
+# doc set, test_advisor_row.py and Story 3.6's harness all address advisor 1.
 ADVISORS = [
     ("Dana Whitfield", "dwhitfield@ua.edu"),
+    # Fixture for Story 7.6, AC 3: a second advisor with an advisee of their own,
+    # so a real student exists who is NOT Dana's advisee. Without them the
+    # "a non-advisee must not appear" criterion has nothing to query for -- every
+    # seeded student belonged to the only advisor.
+    ("Marcus Bell", "mbell@ua.edu"),
 ]
 
 # (name, email, classification, catalog_year, depth_study_label)
@@ -26,7 +33,43 @@ STUDENTS = [
      "Public health and storytelling"),
     ("Tobias Lindqvist", "tlindqvist@crimson.ua.edu", "Senior", "2023",
      "Environmental policy"),
+    # Fixture for Story 7.7, AC 2 and AC 4: an advisee with no depth-study label
+    # recorded and no searches ever run. The other three have both, so without
+    # this row the "not recorded" and "never searched" branches of the advisee
+    # row cannot be exercised and would ship unverified. Deliberately carries no
+    # COMPLETED entry either -- a first-term advisee who has not started.
+    # Keep this entry LAST: student_id is INTEGER PRIMARY KEY with no
+    # AUTOINCREMENT, so ids are assigned in insertion order and the doc set, the
+    # ranker spec's fixtures and Story 3.6's harness all address students 1-3 by
+    # number.
+    ("Noor Haddad", "nhaddad@crimson.ua.edu", "Freshman", "2026-2027", None),
+    # Fixture for Story 7.6, AC 3: advised by Marcus Bell, not Dana Whitfield.
+    # Appended last so students 1-4 keep their ids.
+    ("Priya Raman", "praman@crimson.ua.edu", "Junior", "2024-2025",
+     "Medical anthropology"),
 ]
+
+# student index -> index into ADVISORS. Absent means advisor 0 (Dana), which is
+# every student but the Story 7.6 fixture.
+STUDENT_ADVISOR = {4: 1}
+
+# The term these seeded searches belong to. Matches app.py's NAVIGATOR_TERM
+# default; search_request.term is recorded per request, so it has to be stated.
+TERM = "202710"
+
+# student index -> interest phrases that student has searched, oldest first.
+# Fixture for Story 7.7, AC 3: the advisee row shows the most recent phrases a
+# student typed, so at least one advisee has to have typed something. Seeded
+# rather than left to whoever last clicked around the app, because this script
+# deletes `search_request` on every run and an acceptance criterion that depends
+# on ad-hoc browsing is not reproducible. Graded on purpose -- three phrases,
+# two, one, and none for the Story 7.7 fixture at index 3 -- so "most recent",
+# "fewer than the display limit" and "never searched" are all exercisable.
+SEARCHES = {
+    0: ["medieval poetry", "cognitive development", "climate policy"],
+    1: ["storytelling", "public health"],
+    2: ["environmental policy"],
+}
 
 # student index -> completed courses: (subject, number, title, term, grade, credits, [bucket codes])
 COMPLETED = {
@@ -134,12 +177,20 @@ def run(conn):
             INSERT INTO student
                 (name, email, classification, catalog_year, advisor_id, depth_study_label)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (name, email, classification, year, advisor_ids[0], depth))
+        """, (name, email, classification, year,
+              advisor_ids[STUDENT_ADVISOR.get(i, 0)], depth))
         sid = cur.lastrowid
-        conn.execute(
+        user_cur = conn.execute(
             "INSERT INTO app_user (username, display_name, role, student_id)"
             " VALUES (?, ?, 'student', ?)",
             (email.split("@")[0], name, sid))
+
+        # Oldest first, so request_id ascends with time and the
+        # "ORDER BY request_id DESC" readers use returns the most recent first.
+        for phrase in SEARCHES.get(i, []):
+            conn.execute(
+                "INSERT INTO search_request (student_id, actor_user_id, term, phrase)"
+                " VALUES (?, ?, ?, ?)", (sid, user_cur.lastrowid, TERM, phrase))
 
         for subj, num, title, term, grade, credits, buckets in COMPLETED.get(i, []):
             cur = conn.execute("""

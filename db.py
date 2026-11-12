@@ -199,10 +199,63 @@ def get_student(conn, student_id):
     """, (student_id,)).fetchone()
 
 
-def advisees(conn, advisor_id):
-    return conn.execute(
-        "SELECT * FROM student WHERE advisor_id = ? ORDER BY name",
-        (advisor_id,)).fetchall()
+def advisees(conn, advisor_id, name_query=None):
+    """This advisor's students, optionally narrowed to part of a name.
+
+    The name filter is ANDed into the SAME query as advisor_id rather than
+    applied to the rows afterwards. That is the whole of Story 7.6's AC 3 on the
+    scoping side: a student who is not this advisor's advisee cannot be returned,
+    by construction rather than by a second step someone can later drop. It is
+    also AC 6 -- the caller loops `outstanding_buckets` over whatever comes back,
+    at ten queries each, so the narrowing has to happen before that loop.
+
+    Matching is on a substring, case-insensitively: SQLite's LIKE folds case for
+    ASCII. The LIKE wildcards are escaped, so a query of "%" looks for a literal
+    percent sign instead of returning the whole roster.
+    """
+    sql = "SELECT * FROM student WHERE advisor_id = ?"
+    params = [advisor_id]
+    q = (name_query or "").strip()
+    if q:
+        # "/" as the escape character rather than a backslash: it needs no
+        # doubling in a Python literal, so what is written here is what SQLite
+        # receives.
+        esc = q.replace("/", "//").replace("%", "/%").replace("_", "/_")
+        sql += " AND name LIKE ? ESCAPE '/'"
+        params.append("%" + esc + "%")
+    return conn.execute(sql + " ORDER BY name", params).fetchall()
+
+
+def recent_phrases(conn, student_ids, limit=3):
+    """Most recent distinct phrases each student typed -> {student_id: [phrase]}.
+
+    One query for the whole set, not one per student. `advisor_view` already
+    runs `outstanding_buckets` per advisee, and Story 7.6's last acceptance
+    criterion exists because that pattern does not scale; adding a second
+    per-advisee round trip here would make the thing 7.6 has to fix worse.
+
+    Distinct because a student who searches the same words four times has told
+    the advisor one thing, not four. `request_id DESC` orders by recency --
+    `created_at` has a one-second resolution and ties within a page load.
+
+    Students with no searches are absent from the result rather than mapped to
+    an empty list, so the caller must use `.get(sid, [])`; that keeps "never
+    searched" (Story 7.7, AC 4) a real absence instead of a silent empty.
+    """
+    if not student_ids:
+        return {}
+    marks = ",".join("?" * len(student_ids))
+    rows = conn.execute(
+        "SELECT student_id, phrase FROM search_request"
+        " WHERE student_id IN ({})"
+        " ORDER BY student_id, request_id DESC".format(marks),
+        tuple(student_ids)).fetchall()
+    out = {}
+    for r in rows:
+        seen = out.setdefault(r["student_id"], [])
+        if r["phrase"] not in seen and len(seen) < limit:
+            seen.append(r["phrase"])
+    return out
 
 
 # groups dict key -> recommendation.result_group value. Ordered as displayed.

@@ -122,7 +122,7 @@ Each is named, and each is specified tightly enough to write acceptance criteria
 | 12 | `RankProvenance` | How results were ordered, and how many were discarded | deterministic / reranked / fell back |
 | 13 | `GapWarning` | Nothing offered closes this requirement | — |
 | 14 | `EmptyState` | Phrase matched nothing; no advisees; no outstanding requirements | three variants |
-| 15 | `AdviseeRow` | One student in the advisor list, with open-requirement count | — |
+| 15 | `AdviseeRow` | One student in the advisor list, with open-requirement count, their working depth-study label and the phrases they last searched (Story 7.7) | — |
 
 ### The two that carry the product
 
@@ -205,8 +205,8 @@ horizontally.
 - UX-DR15: Build `UncertaintyFlag` with two variants — unknown topic, and unknown seminar theme — each stating what is unknown and directing the user to their advisor.
 - UX-DR16: Build `RankProvenance` stating whether the order is deterministic or reranked and how many candidates validation discarded.
 - UX-DR17: Build `GapWarning` for a requirement no offered section can close.
-- UX-DR18: Build `EmptyState` with three variants: no phrase match, no advisees, no outstanding requirements.
-- UX-DR19: Build `AdviseeRow` showing the student, their classification, and a count of open requirements.
+- UX-DR18: Build `EmptyState` with **five** variants: no phrase match, no advisees, no outstanding requirements, nothing offered closes an outstanding requirement (added by Story 3.6), and no advisee matched the name searched (added by Story 7.6). *(Amended November 11 2026. The DR said three. Story 3.6 added the browse-list gap state, taking it to four — its FR15 state is this DR's existing "no phrase match", not a new variant — and Story 7.6 added the no-match state, taking it to five. A sixth, an empty state on the uncertain block, was considered and deliberately not built: at zero that block is absent rather than empty.)*
+- UX-DR19: Build `AdviseeRow` showing the student, their classification, and a count of open requirements. **Amended November 11 2026 by Story 7.7:** the row also carries the student's working depth-study label and their most recent interest phrases, both labelled as the student's own words and neither asserting a fit (D-22, D-26, F-04). They stack inside the Student cell rather than adding columns — see UX-DR33 and Story 8.5's note on this `.grid` being unwrapped.
 
 ### Screens
 
