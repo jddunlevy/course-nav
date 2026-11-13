@@ -155,25 +155,17 @@ def main():
     one_q = count_selects(client, "/advisor/{}?q={}".format(DANA, frag))
     none_q = count_selects(client, "/advisor/{}?q=qqzzxx".format(DANA))
     matched = len(want)
-    # A page with at least one advisee also runs db.recent_phrases once (Story
-    # 7.7), which a page with none skips entirely -- recent_phrases returns
-    # early on an empty id list rather than issuing an IN () query. So the
-    # difference against the no-match page is the roll-ups PLUS that one query.
-    PHRASE_Q = 1
     # Story 1.6 scopes /advisor/<id> to that advisor, so Marcus's page has to
     # be measured as Marcus -- as Dana it is now a 404 and costs nothing.
     marcus_client = appmod.app.test_client()
     marcus_client.post("/signin", data={"username": "mbell", "password": "navigator"})
-    passed &= check("AC6 one advisee costs ten roll-up SELECTs, plus one phrase query",
+    passed &= check("AC6 one advisee costs ten roll-up SELECTs",
                     count_selects(marcus_client, "/advisor/{}".format(MARCUS)) - none_q,
-                    PER_ADVISEE + PHRASE_Q)
+                    PER_ADVISEE)
     passed &= check("AC6 a narrowed search skips the non-matching roll-ups",
                     all_q - one_q, PER_ADVISEE * (len(dana) - matched))
     passed &= check("AC6 a search matching nobody does no per-advisee work at all",
-                    all_q - none_q, PER_ADVISEE * len(dana) + PHRASE_Q)
-    passed &= check("AC6 the no-match page skips the phrase query too",
-                    none_q < count_selects(client, "/advisor/{}?q={}".format(DANA, frag))
-                    - PER_ADVISEE * matched, True)
+                    all_q - none_q, PER_ADVISEE * len(dana))
     passed &= check("AC6 cost scales with matches, not with advisee count",
                     one_q < all_q, True)
 

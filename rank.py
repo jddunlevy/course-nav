@@ -112,6 +112,69 @@ W_BOTH = 0.75       # D-19: genuine dual fit, now gated on RELEVANCE_FLOOR
 RELEVANCE_FLOOR = 0.25
 
 
+# --- Prerequisite screen -------------------------------------------------
+#
+# There is no prerequisite ENTITY in this schema -- it was deferred as
+# optional-for-v1 (schema.sql:12) -- so this is a TEXT screen over Banner's
+# sectionText and the catalog description, and it is the weakest thing feeding
+# the page. It can only find a prerequisite somebody wrote down in prose: 376
+# of 9,621 offerings match any pattern below, so the other 9,245 come back
+# clean whether or not they actually have one. MATH 125 and BSC 115 both carry
+# real prerequisites and both come back clean. The UI must therefore say
+# "none listed" and never "none" -- see results.html.
+PREREQ_PATTERNS = [
+    r"prereq",                                         # 131 offerings
+    r"instructor permission required",                 # 121
+    r"permission of",                                  # 118
+    r"(?:junior|senior|graduate|sophomore) standing",  # 35
+    r"placement (?:exam|and)",                         # 16
+    r"formal application",                             # 9
+    r"minimum grade of",                               # 4
+    r"consent of",                                     # 1
+]
+PREREQ_RE = re.compile("|".join(PREREQ_PATTERNS), re.I)
+
+
+def has_prerequisite(offering):
+    """True when a prerequisite is WRITTEN DOWN for this section.
+
+    False means "nothing said so", not "no prerequisite". The two are not the
+    same thing here, and no caller may render them as though they were.
+    """
+    return bool(PREREQ_RE.search(" ".join(filter(None, [
+        offering.get("section_text"), offering.get("description")]))))
+
+
+def filter_no_prereq(results):
+    """Drop the results whose course lists a prerequisite.
+
+    Returns (kept, hidden_count). Kept separate from rank() so the page can
+    state how many rows the toggle removed: a filter that silently shrinks a
+    result set is indistinguishable from a ranker that got worse.
+    """
+    kept = [r for r in results if not r["has_prereq"]]
+    return kept, len(results) - len(kept)
+
+
+def filter_requirement(results, requirement_code):
+    """Keep only the results that close one named requirement.
+
+    Returns (kept, hidden_count), like filter_no_prereq, and for the same
+    reason: the page states how many rows the narrowing removed rather than
+    quietly serving a smaller set.
+
+    A course can close several requirements at once, so this is membership in
+    `buckets_closed`, not equality. Courses that close nothing carry an empty
+    `buckets_closed` and are therefore always dropped -- which is the point of
+    the link that leads here, but it does mean the phrase-only matches are gone
+    from the page. The caller says so on screen.
+    """
+    kept = [r for r in results
+            if any(b.get("requirement_code") == requirement_code
+                   for b in r["buckets_closed"])]
+    return kept, len(results) - len(kept)
+
+
 def rank(index, outstanding, phrase, open_only=True):
     """Return ranked result dicts, one per course, uncapped.
 
@@ -130,7 +193,12 @@ def rank(index, outstanding, phrase, open_only=True):
                 open_buckets[b["bucket_id"]] = {
                     "bucket_id": b["bucket_id"], "code": b["code"],
                     "name": b["name"], "weight": weight,
-                    "requirement": req["name"], "must_unmet": b["must_unmet"],
+                    "requirement": req["name"],
+                    # The requirement's own code, not the bucket's: a bucket
+                    # belongs to several requirements' unions (D-28), so the
+                    # bucket code cannot name which requirement was asked for.
+                    "requirement_code": req["code"],
+                    "must_unmet": b["must_unmet"],
                 }
 
     sims = index.similarity(phrase)
@@ -178,6 +246,7 @@ def rank(index, outstanding, phrase, open_only=True):
             "bucket_score": round(bucket_score, 4),
             "relevance_score": relevance_score,
             "flag": "topic_uncertain" if uncertain else "ranked",
+            "has_prereq": has_prerequisite(o),
             "buckets_closed": closed,
             "reason": build_reason(o, closed, relevance_score, uncertain),
         })
@@ -200,6 +269,13 @@ def rank(index, outstanding, phrase, open_only=True):
         key = (r["offering"]["subject"], r["offering"]["course_number"])
         if key in best:
             best[key]["other_sections"] += 1
+            # A prerequisite is a property of the COURSE, but sectionText is
+            # per-section and the sort above picks the representative on
+            # relevance alone. Without this OR, whether MATH 112 looks
+            # prerequisite-free depends on which of its CRNs happened to sort
+            # first -- the filter would be nondeterministic across terms.
+            best[key]["has_prereq"] = (best[key]["has_prereq"]
+                                       or r["has_prereq"])
         else:
             r["other_sections"] = 0
             best[key] = r
@@ -207,7 +283,7 @@ def rank(index, outstanding, phrase, open_only=True):
     return [best[k] for k in order]
 
 
-def group_results(results):
+def group_results(results, order_by_relevance=False):
     """Partition `rank()`'s output into the four labelled sets (TD-1).
 
     Returns plain lists and plain counts -- no Flask, no Jinja2 -- because the
@@ -230,6 +306,13 @@ def group_results(results):
                         group (student 1's group 3 is {1.0: 64}); without it the
                         alphabetical filler this spec calls out as the symptom
                         would simply relocate to the top of group 3.
+
+    `order_by_relevance` drops the closure key and orders group 3 on relevance
+    alone. It is for the caller that has already narrowed the set to ONE
+    requirement: every row there closes the same thing, so closure says almost
+    nothing and sorting on it first buries exactly what the narrowing was asked
+    to surface. This is not the blend D-19 and D-35 forbid -- no two quantities
+    are combined, and group membership is untouched.
       counts            pre-cap sizes, including `weak_no_closure` -- the fourth
                         set, 36-41 courses per search, which is counted and
                         stated but never listed. Named because it exists: the
@@ -240,11 +323,18 @@ def group_results(results):
     """
     relevant = [r for r in results if r["relevance_score"] >= RELEVANCE_FLOOR]
 
+    if order_by_relevance:
+        def group3_key(r):
+            return (-r["relevance_score"], r["offering"]["subject"],
+                    r["offering"]["course_number"])
+    else:
+        def group3_key(r):
+            return (-r["bucket_score"], -r["relevance_score"],
+                    r["offering"]["subject"], r["offering"]["course_number"])
+
     requirement_only = sorted(
         (r for r in results if r["bucket_score"] > 0
-         and r["relevance_score"] < RELEVANCE_FLOOR),
-        key=lambda r: (-r["bucket_score"], -r["relevance_score"],
-                       r["offering"]["subject"], r["offering"]["course_number"]))
+         and r["relevance_score"] < RELEVANCE_FLOOR), key=group3_key)
 
     weak_no_closure = sum(1 for r in results if r["bucket_score"] == 0
                           and 0 < r["relevance_score"] < RELEVANCE_FLOOR)

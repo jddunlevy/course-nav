@@ -183,20 +183,16 @@ def advisor_view(advisor_id):
     # queries per advisee, and AC 6 is that non-matching advisees never pay it.
     query = (request.args.get("q") or "").strip()
     rows = db.advisees(conn, advisor_id, query)
-    # One query for every advisee's recent phrases (FR28 via Story 7.7). Fetched
-    # outside the loop deliberately: the per-advisee outstanding_buckets call
-    # below is already the N+1 that Story 7.6's last criterion has to answer for.
-    phrases = db.recent_phrases(conn, [s["student_id"] for s in rows])
     summary = []
     for s in rows:
         outstanding = db.outstanding_buckets(conn, s["student_id"])
         summary.append({
             "student": s,
             "open_count": sum(1 for r in outstanding if not r["satisfied"]),
-            "open_names": [r["name"] for r in outstanding if not r["satisfied"]],
-            # [] when the student has never searched -- recent_phrases omits
-            # them rather than mapping them to empty, so AC 4 is a real absence.
-            "recent_phrases": phrases.get(s["student_id"], []),
+            # name AND code: the name is displayed, the code is what the link
+            # to that requirement's own search carries.
+            "open_reqs": [{"name": r["name"], "code": r["code"]}
+                          for r in outstanding if not r["satisfied"]],
         })
     conn.close()
     return render_template("advisor.html", advisor=advisor, summary=summary,
@@ -224,13 +220,37 @@ def _results_page(student_id, viewer_role, advisor_id=None):
     outstanding = db.outstanding_buckets(conn, student_id)
     numeric = db.numeric_progress(conn, student_id)
     phrase = (request.args.get("q") or "").strip()
+    # Story 1.6 scoped records, not search controls: the screen is a property of
+    # the query, so both roles get it from the one handler they share.
+    no_prereq = request.args.get("no_prereq") == "1"
+    # ?req=<requirement code> narrows every list to the courses that close that
+    # one requirement. Validated against THIS student's outstanding set rather
+    # than trusted: an unknown or already-satisfied code filters nothing, and
+    # `req` is None in the template so the page does not claim it did.
+    req_code = (request.args.get("req") or "").strip()
+    req = next((r for r in outstanding
+                if r["code"] == req_code and not r["satisfied"]), None)
 
     groups = rank.group_results([])
     matched = True
+    n_prereq_hidden = 0
+    n_req_hidden = 0
     meta = {"ranker": "tfidf"}
     if phrase:
         idx = get_index()
-        groups = rank.group_results(rank.rank(idx, outstanding, phrase))
+        results = rank.rank(idx, outstanding, phrase)
+        # Both screens run before grouping and before the cap. Screening after
+        # the cap would hide rows the page had already counted, so the stated
+        # totals would describe a different set than the one on screen -- the
+        # D-21 failure mode.
+        if req:
+            results, n_req_hidden = rank.filter_requirement(results, req["code"])
+        if no_prereq:
+            results, n_prereq_hidden = rank.filter_no_prereq(results)
+        # Inside one requirement every row closes the same thing, so the
+        # closure sort key is dead weight and relevance is the only ordering
+        # left that means anything. That is what the link promises.
+        groups = rank.group_results(results, order_by_relevance=bool(req))
 
         use_llm = RANKER == "llm" or (RANKER == "auto" and rank_llm.available())
         if use_llm and groups["relevant"]:
@@ -287,9 +307,14 @@ def _results_page(student_id, viewer_role, advisor_id=None):
         # most needs right: an advisor searching on a student's behalf (FR29).
         db.save_search(conn, student_id, g.user["user_id"], TERM, phrase, groups)
 
+    # One row per phrase: the requirement links all search the same
+    # depth-study words, so without the grouping this is five copies of one
+    # phrase. MAX(request_id) keeps the ordering on recency rather than on
+    # created_at, whose one-second resolution ties within a page load.
     recent = conn.execute("""
-        SELECT phrase, created_at FROM search_request
-        WHERE student_id = ? ORDER BY request_id DESC LIMIT 5
+        SELECT phrase, MAX(created_at) AS created_at
+        FROM search_request WHERE student_id = ?
+        GROUP BY phrase ORDER BY MAX(request_id) DESC LIMIT 5
     """, (student_id,)).fetchall()
     conn.close()
 
@@ -298,7 +323,8 @@ def _results_page(student_id, viewer_role, advisor_id=None):
         numeric=numeric, phrase=phrase, groups=groups, counts=groups["counts"],
         recent=recent,
         matched=matched, meta=meta, viewer_role=viewer_role, advisor_id=advisor_id,
-        term_label=TERM_LABEL,
+        term_label=TERM_LABEL, no_prereq=no_prereq, n_prereq_hidden=n_prereq_hidden,
+        req=req, n_req_hidden=n_req_hidden,
         # The uncertain rows only, and only the displayed ones. Counted off the
         # pre-cap selection above rather than off the capped list, which read 0
         # for every student -- the callout could not fire at all.

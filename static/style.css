@@ -252,6 +252,22 @@ a:hover { color: var(--crimson-deep); }
   .search button { background: #4A1620; border-color: #4A1620; color: #F7E9EB; }
 }
 
+/* The prerequisite screen sits on its own row under the phrase box. `.search`
+   is a flex row whose `input { flex: 1 }` would otherwise stretch the checkbox
+   across the whole width; flex-wrap plus a full-basis label puts the control
+   below the input without needing a second form element. */
+.search { flex-wrap: wrap; }
+.prereq-toggle {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font: 14px/1.4 var(--sans);
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.prereq-toggle input { flex: 0 0 auto; width: auto; margin: 0; padding: 0; }
+
 /* ------------------------------------- 12. RankProvenance (UX-DR16, FR18) */
 
 .provenance {
@@ -309,6 +325,24 @@ a:hover { color: var(--crimson-deep); }
   padding-top: var(--sp-3);
   border-top: 1px solid var(--rule);
 }
+
+/* Outstanding requirements. Collapsed under the phrase box: the search is what
+ * the screen is for, and this is what a student opens when a result raises a
+ * question. Same sunk treatment as the browse list below. */
+.reqs {
+  margin: var(--sp-4) 0 var(--sp-6);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--rule);
+}
+.reqs > summary {
+  font: 600 15px/1.35 var(--sans);
+  color: var(--ink);
+  cursor: pointer;
+  padding: var(--sp-1) 0;
+}
+.reqs > summary:focus-visible { outline: 2px solid var(--crimson); outline-offset: 2px; }
+.reqs > summary .dim { font-weight: 400; font-size: 14px; }
+.reqs > .req-list, .reqs > .empty { margin-top: var(--sp-3); }
 
 /* Browse list (D-35). Sunk rather than raised: it is reference material on a
  * results page, and it should not compete with the ranked list above it. */

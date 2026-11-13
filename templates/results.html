@@ -80,11 +80,30 @@
 {% if viewer_role == 'advisor' %}
 <div class="acting-as">
   <a href="{{ url_for('advisor_view', advisor_id=advisor_id) }}">&larr; Advisees</a>
-  &nbsp;&middot;&nbsp; You are acting as <b>{{ student.name }}</b>. This is exactly what
-  the student sees (FR29).
+  &nbsp;&middot;&nbsp; You are acting as <b>{{ student.name }}</b>.
 </div>
 {% endif %}
 {% endblock %}
+
+{# Each open requirement links to a search for it: the sections offered this
+   term that close it, ranked against the student's own depth-study words
+   (?q=<label>&req=<code>). No label means nothing to rank against, so the name
+   stays plain text rather than becoming a link to an unranked list. #}
+{% macro req_name(r) -%}
+  {%- if student.depth_study_label and not r.satisfied -%}
+    {%- if viewer_role == 'advisor' -%}
+      {%- set href = url_for('advisor_student_view', advisor_id=advisor_id,
+                             student_id=student.student_id,
+                             q=student.depth_study_label, req=r.code) -%}
+    {%- else -%}
+      {%- set href = url_for('student_view', student_id=student.student_id,
+                             q=student.depth_study_label, req=r.code) -%}
+    {%- endif -%}
+    <a href="{{ href }}">{{ r.name }}</a>
+  {%- else -%}
+    {{ r.name }}
+  {%- endif -%}
+{%- endmacro %}
 
 {% block content %}
 
@@ -92,13 +111,45 @@
 <p class="note">
   {{ student.classification }} &middot; advisor {{ student.advisor_name or '—' }}<br>
   Working depth study: <strong>{{ student.depth_study_label or 'not recorded' }}</strong>
-  <span class="dim">(free text only &mdash; ranking never reads it, D-22)</span>
 </p>
 
-<h2>Outstanding requirements</h2>
+<h2>What are you interested in?</h2>
 
-<p class="note">From DegreeWorks (D-24). Seeded for the prototype.</p>
+{# 7. PhraseInput — UX-DR11. No autocomplete: D-17 says students cannot
+   describe what fits, so suggesting vocabulary would put words in their mouth. #}
+<form method="get" class="search" role="search">
+  {# Retyping a phrase must not silently drop the requirement filter; the
+     callout below is the only way out of it. #}
+  {% if req %}<input type="hidden" name="req" value="{{ req.code }}">{% endif %}
+  <label class="visually-hidden" for="q">Interest phrase</label>
+  <input id="q" type="text" name="q" value="{{ phrase }}" autofocus autocomplete="off"
+         placeholder="e.g. rockets and propulsion, climate policy, storytelling">
+  <button type="submit">Rank sections</button>
+  {# The label says "listed", not "without prerequisites", and it says so
+     deliberately. The screen is prose matching over Banner's sectionText and
+     the catalog blurb -- there is no prerequisite entity (rank.py) -- so it
+     finds 376 of 9,621 sections. A label promising prerequisite-free courses
+     would be making an assertion about the other 9,245 that nothing in this
+     database supports. #}
+  <label class="prereq-toggle">
+    <input type="checkbox" name="no_prereq" value="1" {{ 'checked' if no_prereq }}>
+    Hide courses with a <strong>listed</strong> prerequisite
+  </label>
+</form>
+{% if recent %}
+<p class="note dim">Recent:
+  {% for r in recent %}<a href="?q={{ r.phrase|urlencode }}{% if no_prereq %}&amp;no_prereq=1{% endif %}">{{ r.phrase }}</a>{% if not loop.last %} &middot; {% endif %}{% endfor %}
+</p>
+{% endif %}
 
+{# Requirements live below the search and closed by default: the phrase box is
+   what the student came for, and this is the reference material they open
+   when a result raises a question. #}
+{% set n_open = outstanding|rejectattr('satisfied')|list|length %}
+<details class="reqs">
+  <summary>Outstanding requirements
+    <span class="dim">&mdash; {{ n_open }} open</span>
+  </summary>
 {% if outstanding %}
 {# 4. RequirementCard — UX-DR8, with 2. StatusCircle and 5. RequirementBadge #}
 <div class="req-list">
@@ -109,7 +160,7 @@
   <section class="req {{ 'is-satisfied' if r.satisfied }}" aria-label="{{ r.name }}: {{ word }}">
     <div class="req-head">
       <span class="mark {{ state }}" aria-hidden="true">{{ glyph }}</span>
-      <span class="req-name">{{ r.name }}</span>
+      <span class="req-name">{{ req_name(r) }}</span>
       <span class="req-hours">
         {%- if r.hours_needed %}{{ r.hours_done|int }}/{{ r.hours_needed }} hr
         {%- else %}{{ r.hours_done|int }} hr{% endif -%}
@@ -145,33 +196,27 @@
   <table class="grid">
     {% for n in numeric %}
     <tr>
-      <td>{{ n.name }}{% if n.approximate %} <span class="dim">(approximate &mdash; needs a per-course depth-study flag, not collected in v1)</span>{% endif %}</td>
+      <td>{{ n.name }}{% if n.approximate %} <span class="dim">(approximate)</span>{% endif %}</td>
       <td class="num">{{ n.hours_done|int }}/{{ n.hours_needed }}</td>
     </tr>
     {% endfor %}
   </table>
 </details>
 
-<h2>What are you interested in?</h2>
+</details>
 
-{# 7. PhraseInput — UX-DR11. No autocomplete: D-17 says students cannot
-   describe what fits, so suggesting vocabulary would put words in their mouth. #}
-<form method="get" class="search" role="search">
-  <label class="visually-hidden" for="q">Interest phrase</label>
-  <input id="q" type="text" name="q" value="{{ phrase }}" autofocus autocomplete="off"
-         placeholder="e.g. rockets and propulsion, climate policy, storytelling">
-  <button type="submit">Rank sections</button>
-</form>
-<p class="note">
-  Type a word or phrase (D-22). Courses are ranked on how well they fit the phrase, and
-  nothing else. What a course would close for you is shown <strong>on</strong> the result
-  rather than mixed into its position (D-19 as amended by D-35).
-</p>
-
-{% if recent %}
-<p class="note dim">Recent:
-  {% for r in recent %}<a href="?q={{ r.phrase|urlencode }}">{{ r.phrase }}</a>{% if not loop.last %} &middot; {% endif %}{% endfor %}
-</p>
+{% if req and phrase %}
+<div class="callout gap">
+  Only courses that close <strong>{{ req.name }}</strong>, ranked against
+  &ldquo;{{ phrase }}&rdquo;.
+  {% if viewer_role == 'advisor' %}
+  <a href="{{ url_for('advisor_student_view', advisor_id=advisor_id,
+                      student_id=student.student_id, q=phrase) }}">Show every result</a>
+  {%- else %}
+  <a href="{{ url_for('student_view', student_id=student.student_id,
+                      q=phrase) }}">Show every result</a>
+  {%- endif %}
+</div>
 {% endif %}
 
 {% if phrase %}
@@ -187,13 +232,21 @@
   {%- endif %}
 </h2>
 
+{% if no_prereq %}
+<div class="callout gap">
+  Screening out courses with a listed prerequisite
+  {%- if n_prereq_hidden %} &mdash; {{ n_prereq_hidden }} course{{ 's' if n_prereq_hidden != 1 }} removed from the counts below{% endif %}.
+  <strong>This is a text search, not a prerequisite check.</strong> A course shown here
+  may still have one. Confirm in Banner before you register.
+</div>
+{% endif %}
+
 {% if not matched %}
 {# FR15 (D-17), strengthened by D-35: this fires when nothing clears
    RELEVANCE_FLOOR, not when nothing scored above zero. It suggests no
    replacement vocabulary — students report being unable to describe what fits. #}
 <div class="callout gap">
   Nothing offered this term fits &ldquo;{{ phrase }}&rdquo;. Nothing below is a match for it.
-  Try different words, and check with your advisor before concluding nothing exists.
 </div>
 {% endif %}
 
@@ -211,9 +264,6 @@
     {%- if meta.fallback_from %} <span class="rejected">Reranker unavailable ({{ meta.error }}); deterministic order served (FR21).</span>
     {%- else %} No reranking credential configured.{% endif %}
   {%- endif %}
-  What a course closes for you never moves its position &mdash; it is shown on the course
-  instead. The requirement list further down is not ranked against your phrase and was not
-  reordered at all.
 </p>
 
 {# ---- Ranked: fit to the phrase. One list, dual fit badged in place. ---- #}
@@ -226,16 +276,13 @@
    sections exist, none of them fits the phrase. #}
 <div class="empty">
   <b>No course fits that phrase</b>
-  Everything offered this term was checked. Nothing came close enough to your words to be
-  called a match, so nothing is listed rather than something arbitrary being listed.
 </div>
 {% endif %}
 
 {% if counts.weak_no_closure %}
 <p class="note dim">
   {{ counts.weak_no_closure }} further course{{ 's' if counts.weak_no_closure != 1 }} had a
-  faint resemblance to your phrase and would close nothing for you. Not listed &mdash; too
-  weak to call a match, and nothing to gain by taking it.
+  faint resemblance to your phrase and would close nothing for you. Not listed.
 </p>
 {% endif %}
 
@@ -250,9 +297,8 @@
   requirement, with the topic undetermined
 </h3>
 <div class="callout">
-  What these count for is known. What they are <em>about</em> changes term to term and the
-  catalog text does not say (D-27). They are shown, never hidden (D-21) &mdash; ask your
-  advisor what this term's topic is before you register.
+  What these count for is known. What they are <em>about</em> is not in the catalog text.
+  Ask your advisor what this term's topic is before you register.
 </div>
 <ol class="results unranked">
   {% for r in uncertain_rows %}{{ result_card(r, relevance_shown=False) }}{% endfor %}
@@ -266,9 +312,10 @@
    what it is. Collapsed because it is long, labelled because it is not a search
    result, and its summary states shown against true (pre-cap) total. #}
 {% if browse_rows %}
-<details class="browse">
+<details class="browse"{% if req %} open{% endif %}>
   <summary>
-    Courses that close your outstanding requirements
+    {% if req %}Courses that close {{ req.name }}
+    {%- else %}Courses that close your outstanding requirements{% endif %}
     <span class="dim">&mdash;
       {%- if counts.browse > browse_rows|length %}
       showing {{ browse_rows|length }} of {{ counts.browse }}
@@ -278,9 +325,13 @@
     </span>
   </summary>
   <p class="note">
-    <strong>Not ranked against &ldquo;{{ phrase }}&rdquo;.</strong> This is what counts toward
-    something you still owe, in order of how much it closes. It is very nearly the same list
-    whatever you type.
+    {%- if req %}
+    <strong>Ordered by relevance to &ldquo;{{ phrase }}&rdquo;.</strong> Every course here
+    closes {{ req.name }}, so the order is relevance and nothing else.
+    {%- else %}
+    <strong>Not ranked against &ldquo;{{ phrase }}&rdquo;.</strong> What counts toward
+    something you still owe, in order of how much it closes.
+    {%- endif %}
     {%- if uncertain_rows %} The {{ uncertain_rows|length }} with undetermined topics are
     listed above, not in here.{% endif %}
   </p>
@@ -293,8 +344,7 @@
    student with requirements left, this is the FR32 gap case and worth stating. #}
 <div class="empty">
   <b>Nothing offered closes an outstanding requirement</b>
-  {% if outstanding %}No section this term counts toward anything you still owe. Take this to
-  your advisor &mdash; it is the kind of gap that changes a plan.
+  {% if outstanding %}No section this term counts toward anything you still owe.
   {% else %}You have no outstanding requirements for anything to close.{% endif %}
 </div>
 {% endif %}

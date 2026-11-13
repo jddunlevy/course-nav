@@ -274,29 +274,21 @@ prov = re.search(r'<p class="provenance">(.*?)</p>', h1, re.S)
 ptext = " ".join(re.sub(r"<[^>]+>", " ", prov.group(1)).split()) if prov else ""
 check("C11", "states ordering is fit to the phrase only",
       "fit to your phrase by TF-IDF only" in ptext, ptext[:58])
-check("C11", "states closure is shown on the row, never moving position",
-      "never moves its position" in ptext and "shown on the course" in ptext, "found")
-check("C11", "states the requirement list was not reordered at all",
-      "not reordered at all" in ptext, "found")
 check("C11", "FR18 dropped-CRN reporting intact (both branches)",
       "invented CRN" in tpl and "0 invented CRNs" in tpl, "present")
 
 print("=" * 108)
-print("C12 pre-search note drops D-19's single-list promise")
+print("C12 no page promises a single blended ordering (D-19 as amended by D-35)")
 h0 = get("/student/1")
-check("C12", "note renders before any search",
-      "What a course would close for you is shown" in h0, "present un-searched")
-# Checked against RENDERED output: the template keeps a Jinja comment at :202
-# recording the old wording, which is documentation, not a promise on the page.
+# Checked against RENDERED output: the template keeps a Jinja comment recording
+# the old wording, which is documentation, not a promise on the page.
 blend = re.compile(r"single (list|ranking)|blended|mixed into (one|a single)", re.I)
 hits = [p for p, hh in (("un-searched", h0), ("s1/climate", h1), ("s2/climate", h2),
                         ("s2/rockets", h9)) if blend.search(hh)]
 check("C12", "no blended/single-list promise in any rendered page", not hits,
       "pages with a promise: %s" % (hits or "none"))
 check("C12", "the only such wording left is a Jinja comment",
-      bool(re.search(r"\{#[^#]*single blended", tpl, re.S)), "template :202, not rendered")
-check("C12", "says closure is shown on the result, not mixed into position",
-      "rather than mixed into its position" in tpl, "found")
+      bool(re.search(r"\{#[^#]*single blended", tpl, re.S)), "a comment, not rendered")
 
 print("=" * 108)
 print("C13 designed empty states (UX-DR34)")

@@ -3,14 +3,6 @@
 {% block who %}<span class="who">{{ advisor.name }} &middot; advisor</span>{% endblock %}
 {% block content %}
 <h1>{{ advisor.name }}</h1>
-<p class="note">
-  Advisees. One advisor per student (D-25). Guidance here is informal &mdash;
-  there is no approval step until the third-year review (D-26).
-  The depth study and the searches shown are each student's <strong>own words</strong>
-  &mdash; a working label they chose and the phrases they typed. Nothing here judges
-  whether the two fit each other, or whether any course fits either; ranking never reads
-  the label (D-22). That reading stays yours.
-</p>
 
 {# 16. AdviseeSearch — Story 7.6, UX-DR22. GET, so the query is in the URL and
    the result is reproducible by reopening it. Mirrors the phrase search at
@@ -36,23 +28,14 @@
   <tr>
     <td>
       <strong>{{ row.student.name }}</strong>
-      {# Story 7.7 / FR28. Both fields are the student's own words (D-22), so
-         each is labelled as a working note and neither is presented as a
-         confirmed programme of study (D-26) or as a judgment of fit (F-04). #}
+      {# The label is the student's own words (D-22), so it is labelled as a
+         working note rather than as a confirmed programme of study (D-26). #}
       <div class="advisee-meta">
         <span class="meta-label">Working depth study</span>
         {%- if row.student.depth_study_label %}
         <span class="own-words">{{ row.student.depth_study_label }}</span>
         {%- else %}
         <span class="not-recorded">not recorded</span>
-        {%- endif %}
-      </div>
-      <div class="advisee-meta">
-        <span class="meta-label">They last searched for</span>
-        {%- if row.recent_phrases %}
-        {% for p in row.recent_phrases %}<span class="own-words">{{ p }}</span>{%- if not loop.last %}<span class="dim"> &middot; </span>{% endif %}{% endfor %}
-        {%- else %}
-        <span class="not-recorded">has not searched yet</span>
         {%- endif %}
       </div>
     </td>
@@ -62,9 +45,25 @@
             aria-hidden="true">{{ '●' if row.open_count == 0 else '○' }}</span>
       <span class="count">{{ row.open_count }}</span>
     </td>
+    {# Each open requirement links to the sections offered this term that
+       close it, ranked against the student's OWN depth-study words. With no
+       label there is nothing to rank against, so the name is plain text: a
+       link that silently ranked on nothing would look like the same answer. #}
     <td class="dim">
-      {% if row.open_names %}{{ row.open_names|join(' &middot; '|safe) }}
-      {% else %}<span class="mark is-complete" aria-hidden="true">&#9679;</span> all requirements satisfied{% endif %}
+      {%- if row.open_reqs %}
+      {%- for req in row.open_reqs %}
+      {%- if row.student.depth_study_label %}
+      <a href="{{ url_for('advisor_student_view',
+                          advisor_id=advisor.advisor_id,
+                          student_id=row.student.student_id,
+                          q=row.student.depth_study_label,
+                          req=req.code) }}">{{ req.name }}</a>
+      {%- else %}{{ req.name }}
+      {%- endif %}
+      {%- if not loop.last %} <span class="dim">&middot;</span> {% endif %}
+      {%- endfor %}
+      {%- else %}<span class="mark is-complete" aria-hidden="true">&#9679;</span> all requirements satisfied
+      {%- endif %}
     </td>
     <td>
       <a href="{{ url_for('advisor_student_view', advisor_id=advisor.advisor_id, student_id=row.student.student_id) }}">Search for them &rarr;</a>
@@ -79,15 +78,14 @@
    would confirm that the student exists, which Story 7.6's AC 3 forbids. #}
 <div class="empty">
   <b>No advisee of yours matches &ldquo;{{ query }}&rdquo;</b>
-  This search covers your own advisees only. Check the spelling, or
-  <a href="{{ url_for('advisor_view', advisor_id=advisor.advisor_id) }}">show all
+  This search covers your own advisees only.
+  <a href="{{ url_for('advisor_view', advisor_id=advisor.advisor_id) }}">Show all
   {{ advisor.name }}&rsquo;s advisees</a>.
 </div>
 {% else %}
 {# 14. EmptyState — UX-DR18, "no advisees" variant #}
 <div class="empty">
   <b>No advisees assigned</b>
-  Students are linked to an advisor by <code>student.advisor_id</code> (D-25).
 </div>
 {% endif %}
 {% endblock %}
