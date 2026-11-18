@@ -2,7 +2,7 @@
 {% block title %}{{ student.name }} &mdash; Course Navigator{% endblock %}
 
 {# 8. CourseResultCard — UX-DR12. Nothing here is truncated (UX-DR25).
-   One macro, three lists (ranked / uncertain / browse). They must not diverge:
+   One macro, two lists (ranked / browse). They must not diverge:
    the same course can appear in the ranked list and the browse list, and two
    different renderings of it would read as two different courses.
    `rank_shown` — the ranked list is ordered by relevance, so the number means
@@ -220,10 +220,13 @@
 {% endif %}
 
 {% if phrase %}
-{# The three displayed sets. `counts` is pre-cap throughout — it says how many
+{# The two displayed sets. `counts` is pre-cap throughout — it says how many
    exist, not how many are shown — so every number below states which it is. #}
-{% set uncertain_rows = groups.requirement_only | selectattr('flag', 'equalto', 'topic_uncertain') | list %}
-{% set browse_rows    = groups.requirement_only | rejectattr('flag', 'equalto', 'topic_uncertain') | list %}
+{# The topic-undetermined rows are no longer listed on the page. They are
+   still excluded from this list rather than folded into it, because
+   counts.browse -- the pre-cap total the summary states -- measures the set
+   without them. #}
+{% set browse_rows = groups.requirement_only | rejectattr('flag', 'equalto', 'topic_uncertain') | list %}
 
 <h2>
   {{ counts.relevant }} course{{ 's' if counts.relevant != 1 }} fit &ldquo;{{ phrase }}&rdquo;
@@ -286,25 +289,6 @@
 </p>
 {% endif %}
 
-{# ---- Uncertain and requirement-closing: uncollapsed (D-21, D-35 Q-2). ----
-   These can only ever land here: rank.py forces their relevance to 0, so they
-   can never clear the floor and never appear in the ranked list above. Putting
-   them behind a disclosure would hide exactly what D-21 exists to surface. The
-   set is small by measurement — 8 rows for the seeded students who have any. #}
-{% if uncertain_rows %}
-<h3 class="group-head">
-  {{ uncertain_rows|length }} course{{ 's' if uncertain_rows|length != 1 }} that close a
-  requirement, with the topic undetermined
-</h3>
-<div class="callout">
-  What these count for is known. What they are <em>about</em> is not in the catalog text.
-  Ask your advisor what this term's topic is before you register.
-</div>
-<ol class="results unranked">
-  {% for r in uncertain_rows %}{{ result_card(r, relevance_shown=False) }}{% endfor %}
-</ol>
-{% endif %}
-
 {# ---- Browse list: everything that closes a requirement. ----
    Not results. Measured near phrase-invariant — 478 to 488 rows of a possible
    488 for student 2 whatever is typed, and all 488 on a phrase that matched
@@ -332,14 +316,12 @@
     <strong>Not ranked against &ldquo;{{ phrase }}&rdquo;.</strong> What counts toward
     something you still owe, in order of how much it closes.
     {%- endif %}
-    {%- if uncertain_rows %} The {{ uncertain_rows|length }} with undetermined topics are
-    listed above, not in here.{% endif %}
   </p>
   <ol class="results unranked">
     {% for r in browse_rows %}{{ result_card(r, relevance_shown=False) }}{% endfor %}
   </ol>
 </details>
-{% elif not uncertain_rows %}
+{% else %}
 {# EmptyState variant — nothing offered closes anything outstanding. For a
    student with requirements left, this is the FR32 gap case and worth stating. #}
 <div class="empty">

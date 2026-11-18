@@ -172,39 +172,35 @@ for c in ("AAST 300", "AAST 352", "AMS 345", "ANT 411", "ANT 412"):
           "PRESENT" if c in codes4 else "absent")
 
 print("=" * 108)
-print("C5  uncertain rows uncollapsed in their own block, closure + flag visible")
+print("C5  the topic-undetermined section is gone, and nothing of it is left behind")
+# The block that listed these rows was deleted on request. What this now
+# guards is that it went cleanly: no row, no heading, no callout, and no
+# sentence anywhere still pointing readers at a section that is not there.
 for sid in (1, 2, 3):
     hh = get("/student/%d?q=climate+policy" % sid)
     LL = lists(hh)
     _, u = truth(sid, "climate policy")
-    shown = LL["uncertain"] or []
-    check("C5", "student %d: rendered uncertain rows == ranker's" % sid, len(shown) == len(u),
-          "rendered=%d truth=%d" % (len(shown), len(u)))
-    if shown:
-        d_at = hh.find('<details class="browse">')
-        h3 = hh.find('<h3 class="group-head">')
-        check("C5", "student %d: block is outside the collapsed <details>" % sid,
-              h3 != -1 and (d_at == -1 or h3 < d_at), "h3@%d details@%d" % (h3, d_at))
-        check("C5", "student %d: every row states its closure" % sid,
-              all(r["badges"] for r in shown),
-              "%d/%d badged" % (sum(1 for r in shown if r["badges"]), len(shown)))
-        check("C5", "student %d: every row shows the uncertainty flag" % sid,
-              all(r["flag"] for r in shown),
-              "%d/%d flagged" % (sum(1 for r in shown if r["flag"]), len(shown)))
+    check("C5", "student %d: ranker still produces them (%d)" % (sid, len(u)),
+          True, "%d uncertain rows" % len(u))
+    check("C5", "student %d: none of them is rendered" % sid,
+          not (LL["uncertain"] or []), "rendered=%d" % len(LL["uncertain"] or []))
+    shown_codes = {r["code"] for r in (LL["browse"] or []) + (LL["ranked"] or [])}
+    leaked = sorted(shown_codes & {r["offering"]["subject"] + " "
+                                   + r["offering"]["course_number"] for r in u})
+    check("C5", "student %d: none leaks into the other lists" % sid, not leaked,
+          leaked[:4] or "none")
+    check("C5", "student %d: no empty block heading survives" % sid,
+          '<h3 class="group-head">' not in hh, "no group-head")
 
 print("=" * 108)
-print('C6  callout says "these" only about visible rows; absent at zero')
+print("C6  no copy refers to the deleted section")
 h2 = get("/student/2?q=climate+policy")
 L2 = lists(h2)
-co = "What these count for is known"
-check("C6", "student 1 (0 uncertain): callout absent", co not in h1,
-      "absent" if co not in h1 else "PRESENT")
-check("C6", "student 2 (8 uncertain): callout present", co in h2,
-      "present" if co in h2 else "ABSENT")
-mg = re.search(r'<h3 class="group-head">\s*(\d+) course', h2)
-check("C6", "block heading count == rows actually rendered",
-      bool(mg) and int(mg.group(1)) == len(L2["uncertain"] or []),
-      "heading=%s rendered=%d" % (mg and mg.group(1), len(L2["uncertain"] or [])))
+for phrase in ("What these count for is known", "topic undetermined",
+               "undetermined topics are listed above", "listed above, not in here"):
+    check("C6", "%r is gone from the page" % phrase, phrase not in h2, "absent")
+check("C6", "the per-row flag still exists for any list that shows such a row",
+      "uncertain-flag" in tpl, "macro intact")
 
 print("=" * 108)
 print("C7  browse list headed as requirement-closing, not as a phrase result")
@@ -235,10 +231,12 @@ if mm:
     # counts["browse"], because Q-2 moved the uncertain rows out of this list.
     check("C8", 'M == counts["browse"] (criterion as amended)', M == true_browse,
           "M=%d  counts.browse=%d  (counts.requirement_only=%d)" % (M, true_browse, true_ro))
-    flat = " ".join(h2.split())  # the sentence wraps across a line in the template
-    check("C8", "the rows held back from this list are stated separately",
-          ("The %d with undetermined topics are listed above" % (true_ro - true_browse)) in flat,
-          "all %d accounted for: %d + %d" % (true_ro, true_browse, true_ro - true_browse))
+    # The uncertain rows are no longer listed anywhere, so M measures the
+    # browse set alone and the page no longer claims to account for all of
+    # counts["requirement_only"].
+    check("C8", "M is the browse total, not the whole requirement-closing set",
+          M == true_browse and M != true_ro,
+          "M=%d  counts.browse=%d  counts.requirement_only=%d" % (M, true_browse, true_ro))
 
 print("=" * 108)
 print('C9  "rockets and propulsion" -- nothing clears RELEVANCE_FLOOR')

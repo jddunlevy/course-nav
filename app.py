@@ -10,7 +10,7 @@ every route but the sign-in page requires a session. AR16 is reversed.
 import os
 
 from flask import (Flask, abort, g, redirect, render_template, request,
-                   session, url_for)
+                   url_for)
 
 import auth
 import config
@@ -268,23 +268,25 @@ def _results_page(student_id, viewer_role, advisor_id=None):
         # the whole pool. counts stay pre-cap so the page can say how many
         # exist, not just how many it is showing.
         #
-        # Q-2 (D-35): the uncertain-and-closing rows are selected BEFORE the cap
-        # and placed at the head of the displayed set. They have to be, because
-        # rank.py forces their relevance to 0, which sorts them last inside every
-        # bucket tier -- for student 2 / "climate policy" they sit at positions
-        # 161, 162, 317-319, 406, 414 and 423 of 480, so a straight [:40] deleted
-        # all eight. That is D-21 ("shown, never hidden") failing silently, and it
-        # cannot be fixed in the template: by the time Jinja sees the list the rows
-        # are already gone.
+        # The uncertain-and-closing rows are selected BEFORE the cap and placed
+        # at the head of the set. rank.py forces their relevance to 0, which
+        # sorts them last inside every bucket tier -- for student 2 / "climate
+        # policy" they sit at positions 161, 162, 317-319, 406, 414 and 423 of
+        # 480, so a straight [:40] deleted all eight.
+        #
+        # They are no longer LISTED: the template drops them from the browse
+        # list. The hoist stays because `requirement_only` is also what
+        # save_search() persists, and dropping it here would silently stop
+        # recording them. Whether not listing them is consistent with D-21
+        # ("shown, never hidden") is an open question, not a settled one.
         uncertain = [r for r in groups["requirement_only"]
                      if r["flag"] == "topic_uncertain"]
         browse = [r for r in groups["requirement_only"]
                   if r["flag"] != "topic_uncertain"]
-        # Both halves are counted pre-cap. `requirement_only` is the true total of
-        # the whole requirement-closing set; `browse` is that minus the uncertain
-        # rows, which is what the collapsed list's "N of M" has to measure against
-        # now that the uncertain rows are shown outside it.
-        counts = dict(groups["counts"], uncertain=len(uncertain), browse=len(browse))
+        # `browse` is counted pre-cap: it is `requirement_only` minus the
+        # uncertain rows, which is the set the collapsed list's "N of M"
+        # measures against now that the uncertain rows are not listed.
+        counts = dict(groups["counts"], browse=len(browse))
         groups = dict(groups, counts=counts,
                       relevant=groups["relevant"][:DISPLAY_LIMIT],
                       requirement_only=(uncertain[:DISPLAY_LIMIT]
@@ -324,12 +326,7 @@ def _results_page(student_id, viewer_role, advisor_id=None):
         recent=recent,
         matched=matched, meta=meta, viewer_role=viewer_role, advisor_id=advisor_id,
         term_label=TERM_LABEL, no_prereq=no_prereq, n_prereq_hidden=n_prereq_hidden,
-        req=req, n_req_hidden=n_req_hidden,
-        # The uncertain rows only, and only the displayed ones. Counted off the
-        # pre-cap selection above rather than off the capped list, which read 0
-        # for every student -- the callout could not fire at all.
-        n_uncertain=sum(1 for r in groups["requirement_only"]
-                        if r["flag"] == "topic_uncertain"))
+        req=req, n_req_hidden=n_req_hidden)
 
 
 @app.template_filter("meeting")
